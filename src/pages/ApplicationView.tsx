@@ -201,31 +201,6 @@ const ApplicationView = () => {
 
   const currentStatus = statusConfig[application.status as keyof typeof statusConfig] || statusConfig.draft;
 
-  if (isLoading) {
-    return (
-      <div style={{ backgroundColor: 'white', color: 'black', padding: '20px', minHeight: '100vh' }}>
-        <h1>Loading Application...</h1>
-        <p>Please wait while we load your application details.</p>
-      </div>
-    );
-  }
-
-  if (!application) {
-    return (
-      <div style={{ backgroundColor: 'white', color: 'black', padding: '20px', minHeight: '100vh' }}>
-        <h1>Application Not Found</h1>
-        <p>The application you're looking for could not be found.</p>
-        <Link to="/dashboard">
-          <button style={{ backgroundColor: 'blue', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '5px', marginTop: '10px' }}>
-            Back to Dashboard
-          </button>
-        </Link>
-      </div>
-    );
-  }
-
-  const currentStatus = statusConfig[application.status as keyof typeof statusConfig] || statusConfig.draft;
-
   return (
     <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
       {/* Header */}
@@ -366,7 +341,7 @@ const ApplicationView = () => {
               <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 💼 Experience & Skills
               </h2>
-              <div style={{ space: '1.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 <div style={{ marginBottom: '1.5rem' }}>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Previous Tutoring Experience</label>
                   <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap' }}>{application.previous_tutoring_experience || 'None specified'}</p>
@@ -402,7 +377,7 @@ const ApplicationView = () => {
                 📎 Documents
               </h2>
               <p style={{ color: '#6b7280', marginBottom: '1rem' }}>Required documents for your application</p>
-              <div style={{ space: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {REQUIRED_DOCUMENTS.map((doc) => {
                   const uploaded = uploadedDocuments.find(d => d.document_type === doc.type);
                   return (
@@ -439,7 +414,7 @@ const ApplicationView = () => {
           <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <div style={{ padding: '1.5rem' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem' }}>Application Timeline</h2>
-              <div style={{ space: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
                   <div style={{ width: '12px', height: '12px', backgroundColor: '#10b981', borderRadius: '50%' }}></div>
                   <div>
