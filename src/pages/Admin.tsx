@@ -84,10 +84,10 @@ const Admin = () => {
   const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
-    if (!authLoading) {
+    if (!authLoading && isAdmin !== null) {
       if (!user) {
         navigate('/auth');
-      } else if (!isAdmin) {
+      } else if (isAdmin === false) {
         navigate('/dashboard');
         toast.error('Access denied. Admin privileges required.');
       }
@@ -95,7 +95,7 @@ const Admin = () => {
   }, [user, isAdmin, authLoading, navigate]);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin === true) {
       fetchApplications();
     }
   }, [isAdmin]);
@@ -234,7 +234,7 @@ const Admin = () => {
 
   const faculties = [...new Set(applications.map(a => a.faculty))];
 
-  if (authLoading || isLoading) {
+  if (authLoading || isLoading || isAdmin === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />

@@ -25,7 +25,7 @@ const Index = () => {
           <div className="flex items-center gap-3">
             {user ? (
               <>
-                {isAdmin ? (
+                {isAdmin === true ? (
                   <Link to="/admin">
                     <Button variant="outline">Admin Dashboard</Button>
                   </Link>

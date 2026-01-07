@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
-  isAdmin: boolean;
+  isAdmin: boolean | null;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -18,7 +18,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             checkAdminRole(session.user.id);
           }, 0);
         } else {
-          setIsAdmin(false);
+          setIsAdmin(null);
         }
       }
     );
@@ -47,6 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (session?.user) {
         checkAdminRole(session.user.id);
+      } else {
+        setIsAdmin(null);
       }
     });
 
@@ -105,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setIsAdmin(false);
+    setIsAdmin(null);
   };
 
   return (

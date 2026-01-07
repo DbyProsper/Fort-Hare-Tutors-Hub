@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { GraduationCap, Eye, EyeOff, ArrowLeft, Loader2, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -48,10 +49,11 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loginType, setLoginType] = useState<'student' | 'admin'>('student');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user && !authLoading) {
+    if (user && !authLoading && isAdmin !== null) {
       if (isAdmin) {
         navigate('/admin');
       } else {
@@ -136,6 +138,8 @@ const Auth = () => {
               <CardDescription className="text-center">
                 {isSignUp
                   ? 'Sign up with your UFH student email to get started'
+                  : loginType === 'admin'
+                  ? 'Sign in to access the admin dashboard'
                   : 'Sign in to continue to your dashboard'}
               </CardDescription>
             </CardHeader>
@@ -266,6 +270,27 @@ const Auth = () => {
                 </Form>
               ) : (
                 <Form {...signInForm}>
+                  <div className="mb-6">
+                    <label className="text-sm font-medium text-foreground mb-3 block">Login as:</label>
+                    <RadioGroup
+                      value={loginType}
+                      onValueChange={(value) => setLoginType(value as 'student' | 'admin')}
+                      className="flex gap-6"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="student" id="student" />
+                        <label htmlFor="student" className="text-sm font-medium cursor-pointer">
+                          Student
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="admin" id="admin" />
+                        <label htmlFor="admin" className="text-sm font-medium cursor-pointer">
+                          Admin
+                        </label>
+                      </div>
+                    </RadioGroup>
+                  </div>
                   <form onSubmit={signInForm.handleSubmit(handleSignIn)} className="space-y-4">
                     <FormField
                       control={signInForm.control}
@@ -278,7 +303,7 @@ const Auth = () => {
                               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                               <Input
                                 type="email"
-                                placeholder="student@ufh.ac.za"
+                                placeholder={loginType === 'admin' ? 'admin@ufh.ac.za' : 'student@ufh.ac.za'}
                                 className="pl-10"
                                 {...field}
                               />
