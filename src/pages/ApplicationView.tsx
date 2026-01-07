@@ -42,31 +42,41 @@ const statusConfig = {
   draft: {
     label: 'Draft',
     icon: FileText,
-    color: 'bg-gray-100 text-gray-800',
+    bgColor: 'bg-muted',
+    textColor: 'text-muted-foreground',
+    iconColor: 'text-muted-foreground',
     description: 'Your application is saved but not submitted yet.',
   },
   pending: {
     label: 'Pending Review',
     icon: Clock,
-    color: 'bg-yellow-100 text-yellow-800',
+    bgColor: 'bg-warning',
+    textColor: 'text-warning-foreground',
+    iconColor: 'text-warning-foreground',
     description: 'Your application has been submitted and is awaiting review.',
   },
   under_review: {
     label: 'Under Review',
     icon: AlertCircle,
-    color: 'bg-blue-100 text-blue-800',
+    bgColor: 'bg-primary/10',
+    textColor: 'text-primary',
+    iconColor: 'text-primary',
     description: 'An administrator is currently reviewing your application.',
   },
   approved: {
     label: 'Approved',
     icon: CheckCircle2,
-    color: 'bg-green-100 text-green-800',
+    bgColor: 'bg-success',
+    textColor: 'text-success-foreground',
+    iconColor: 'text-success-foreground',
     description: 'Congratulations! Your application has been approved.',
   },
   rejected: {
     label: 'Rejected',
     icon: XCircle,
-    color: 'bg-red-100 text-red-800',
+    bgColor: 'bg-destructive',
+    textColor: 'text-destructive-foreground',
+    iconColor: 'text-destructive-foreground',
     description: 'Your application has been reviewed and unfortunately not approved.',
   },
 };
@@ -91,6 +101,17 @@ const ApplicationView = () => {
     }
 
     loadApplication();
+
+    // Fallback timeout in case loading gets stuck
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        setIsLoading(false);
+        toast.error('Loading timed out. Please try again.');
+        navigate('/dashboard');
+      }
+    }, 10000); // 10 seconds
+
+    return () => clearTimeout(timeout);
   }, [user, id, navigate]);
 
   const loadApplication = async () => {
@@ -152,7 +173,7 @@ const ApplicationView = () => {
     );
   }
 
-  const currentStatus = statusConfig[application.status as keyof typeof statusConfig];
+  const currentStatus = statusConfig[application.status as keyof typeof statusConfig] || statusConfig.draft;
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -178,15 +199,15 @@ const ApplicationView = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-full ${currentStatus?.color.replace('text-', 'bg-').replace('-800', '-100')}`}>
-                <currentStatus.icon className={`w-6 h-6 ${currentStatus?.color.replace('bg-', 'text-').replace('-100', '-600')}`} />
+              <div className="p-3 rounded-full bg-primary/10">
+                <FileText className="w-6 h-6 text-primary" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Application Details</h1>
                 <p className="text-muted-foreground">{currentStatus?.description}</p>
               </div>
             </div>
-            <Badge className={currentStatus?.color}>
+            <Badge className="bg-primary text-primary-foreground">
               {currentStatus?.label}
             </Badge>
           </div>
