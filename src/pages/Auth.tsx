@@ -54,13 +54,18 @@ const Auth = () => {
 
   useEffect(() => {
     if (user && !authLoading && isAdmin !== null) {
-      if (isAdmin) {
-        navigate('/admin');
+      if (loginType === 'admin') {
+        if (isAdmin === true) {
+          navigate('/admin');
+        } else {
+          setError('Access denied. Admin privileges required.');
+          navigate('/dashboard');
+        }
       } else {
         navigate('/dashboard');
       }
     }
-  }, [user, isAdmin, authLoading, navigate]);
+  }, [user, isAdmin, authLoading, navigate, loginType]);
 
   const signInForm = useForm<SignInFormData>({
     resolver: zodResolver(signInSchema),
