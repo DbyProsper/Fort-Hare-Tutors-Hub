@@ -190,7 +190,7 @@ const Dashboard = () => {
                     </div>
                     <div className="flex gap-2">
                       <Link to={`/application/${application.id}`}>
-                        <Button variant="outline" size="sm" className="gap-2">
+                        <Button variant="outline" size="sm" className="gap-2" onClick={() => console.log('View button clicked for application:', application.id)}>
                           <Eye className="w-4 h-4" />
                           View
                         </Button>

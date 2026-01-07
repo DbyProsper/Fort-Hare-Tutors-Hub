@@ -89,33 +89,46 @@ const ApplicationView = () => {
   const [application, setApplication] = useState<any>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
 
+  console.log('ApplicationView rendered with id:', id, 'user:', user);
+
   useEffect(() => {
-    if (!user) {
-      navigate('/auth');
-      return;
-    }
-
-    if (!id) {
-      navigate('/dashboard');
-      return;
-    }
-
+    console.log('useEffect triggered');
     loadApplication();
 
     // Fallback timeout in case loading gets stuck
     const timeout = setTimeout(() => {
-      if (isLoading) {
-        setIsLoading(false);
-        toast.error('Loading timed out. Please try again.');
-        navigate('/dashboard');
-      }
-    }, 10000); // 10 seconds
+      console.log('Loading timeout reached, forcing isLoading to false');
+      setIsLoading(false);
+      toast.error('Loading timed out. Please check your connection and try again.');
+    }, 5000); // 5 seconds
 
     return () => clearTimeout(timeout);
-  }, [user, id, navigate]);
+  }, []);
+
+  // If no user, show a message
+  if (!user) {
+    return (
+      <div style={{ backgroundColor: 'white', color: 'black', padding: '20px' }}>
+        <h1>Not authenticated</h1>
+        <p>Please log in first</p>
+      </div>
+    );
+  }
+
+  // If no id, show a message
+  if (!id) {
+    return (
+      <div style={{ backgroundColor: 'white', color: 'black', padding: '20px' }}>
+        <h1>No application ID</h1>
+        <p>Invalid application ID</p>
+      </div>
+    );
+  }
 
   const loadApplication = async () => {
+    console.log('Starting loadApplication for id:', id, 'user:', user?.id);
     try {
+      console.log('Making Supabase query...');
       const { data, error } = await supabase
         .from('tutor_applications')
         .select('*')
@@ -123,31 +136,44 @@ const ApplicationView = () => {
         .eq('user_id', user?.id)
         .single();
 
-      if (error) throw error;
+      console.log('Query result:', { data: !!data, error });
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
       if (!data) {
+        console.log('No application data found');
         toast.error('Application not found');
         navigate('/dashboard');
         return;
       }
 
+      console.log('Setting application data');
       setApplication(data);
 
       // Load documents
+      console.log('Loading documents...');
       const { data: docs, error: docsError } = await supabase
         .from('application_documents')
         .select('*')
         .eq('application_id', id);
 
+      console.log('Documents query result:', { docs: !!docs, docsError });
+
       if (!docsError && docs) {
         setUploadedDocuments(docs);
       }
 
+      console.log('Application loaded successfully');
+
     } catch (error) {
-      console.error('Error loading application:', error);
+      console.error('Error in loadApplication:', error);
       toast.error('Failed to load application');
       navigate('/dashboard');
     } finally {
+      console.log('Setting isLoading to false');
       setIsLoading(false);
     }
   };
@@ -175,248 +201,250 @@ const ApplicationView = () => {
 
   const currentStatus = statusConfig[application.status as keyof typeof statusConfig] || statusConfig.draft;
 
+  if (isLoading) {
+    return (
+      <div style={{ backgroundColor: 'white', color: 'black', padding: '20px', minHeight: '100vh' }}>
+        <h1>Loading Application...</h1>
+        <p>Please wait while we load your application details.</p>
+      </div>
+    );
+  }
+
+  if (!application) {
+    return (
+      <div style={{ backgroundColor: 'white', color: 'black', padding: '20px', minHeight: '100vh' }}>
+        <h1>Application Not Found</h1>
+        <p>The application you're looking for could not be found.</p>
+        <Link to="/dashboard">
+          <button style={{ backgroundColor: 'blue', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '5px', marginTop: '10px' }}>
+            Back to Dashboard
+          </button>
+        </Link>
+      </div>
+    );
+  }
+
+  const currentStatus = statusConfig[application.status as keyof typeof statusConfig] || statusConfig.draft;
+
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
       {/* Header */}
-      <header className="bg-sidebar text-sidebar-foreground sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <GraduationCap className="w-8 h-8" />
-            <span className="font-bold text-xl">UFH Tutors</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-sm">Welcome, {user?.user_metadata?.full_name}</span>
-            <Button variant="ghost" size="sm" onClick={signOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign Out
-            </Button>
+      <header style={{ backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ width: '40px', height: '40px', backgroundColor: '#3b82f6', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ color: 'white', fontSize: '1.25rem', fontWeight: 'bold' }}>🎓</span>
+              </div>
+              <div>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1f2937' }}>UFH Tutors</h1>
+                <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>University of Fort Hare</p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Welcome, {user?.user_metadata?.full_name || user?.email}</span>
+              <button 
+                onClick={signOut}
+                style={{ backgroundColor: 'transparent', border: '1px solid #d1d5db', padding: '0.5rem 1rem', borderRadius: '0.375rem', color: '#6b7280', cursor: 'pointer' }}
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Status Banner */}
-      <div className="bg-background border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-primary/10">
-                <FileText className="w-6 h-6 text-primary" />
+      <div style={{ backgroundColor: 'white', borderBottom: '1px solid #e2e8f0' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ width: '48px', height: '48px', backgroundColor: '#dbeafe', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '1.5rem' }}>📄</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Application Details</h1>
-                <p className="text-muted-foreground">{currentStatus?.description}</p>
+                <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#1f2937' }}>Application Details</h1>
+                <p style={{ color: '#6b7280' }}>{currentStatus?.description}</p>
               </div>
             </div>
-            <Badge className="bg-primary text-primary-foreground">
+            <div style={{ backgroundColor: '#dbeafe', color: '#1e40af', padding: '0.5rem 1rem', borderRadius: '0.375rem', fontWeight: '500' }}>
               {currentStatus?.label}
-            </Badge>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           {/* Back Button */}
-          <div className="flex items-center gap-4">
+          <div style={{ marginBottom: '2rem' }}>
             <Link to="/dashboard">
-              <Button variant="outline">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
-              </Button>
+              <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'white', border: '1px solid #d1d5db', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: '#6b7280', textDecoration: 'none', cursor: 'pointer' }}>
+                ← Back to Dashboard
+              </button>
             </Link>
           </div>
 
           {/* Personal Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Personal Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Full Name</label>
-                    <p className="text-foreground">{application.full_name}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Student Number</label>
-                    <p className="text-foreground">{application.student_number}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Date of Birth</label>
-                    <p className="text-foreground">{application.date_of_birth}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Gender</label>
-                    <p className="text-foreground">{application.gender || 'Not specified'}</p>
-                  </div>
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
+            <div style={{ padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                👤 Personal Information
+              </h2>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Full Name</label>
+                  <p style={{ color: '#1f2937' }}>{application.full_name}</p>
                 </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Nationality</label>
-                    <p className="text-foreground">{application.nationality}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Residential Address</label>
-                    <p className="text-foreground whitespace-pre-wrap">{application.residential_address}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Contact Number</label>
-                    <p className="text-foreground">{application.contact_number}</p>
-                  </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Student Number</label>
+                  <p style={{ color: '#1f2937' }}>{application.student_number}</p>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Date of Birth</label>
+                  <p style={{ color: '#1f2937' }}>{application.date_of_birth}</p>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Gender</label>
+                  <p style={{ color: '#1f2937' }}>{application.gender || 'Not specified'}</p>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Nationality</label>
+                  <p style={{ color: '#1f2937' }}>{application.nationality}</p>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Contact Number</label>
+                  <p style={{ color: '#1f2937' }}>{application.contact_number}</p>
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Residential Address</label>
+                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap' }}>{application.residential_address}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Academic Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5" />
-                Academic Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Degree Program</label>
-                    <p className="text-foreground">{application.degree_program}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Faculty</label>
-                    <p className="text-foreground">{application.faculty}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Department</label>
-                    <p className="text-foreground">{application.department}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Year of Study</label>
-                    <p className="text-foreground">Year {application.year_of_study}</p>
-                  </div>
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
+            <div style={{ padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                📚 Academic Information
+              </h2>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Degree Program</label>
+                  <p style={{ color: '#1f2937' }}>{application.degree_program}</p>
                 </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Subjects Completed</label>
-                    <p className="text-foreground whitespace-pre-wrap">{application.subjects_completed}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Subjects to Tutor</label>
-                    <p className="text-foreground whitespace-pre-wrap">{application.subjects_to_tutor}</p>
-                  </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Faculty</label>
+                  <p style={{ color: '#1f2937' }}>{application.faculty}</p>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Department</label>
+                  <p style={{ color: '#1f2937' }}>{application.department}</p>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Year of Study</label>
+                  <p style={{ color: '#1f2937' }}>Year {application.year_of_study}</p>
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Subjects Completed</label>
+                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap' }}>{application.subjects_completed}</p>
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Subjects to Tutor</label>
+                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap' }}>{application.subjects_to_tutor}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Experience & Skills */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Briefcase className="w-5 h-5" />
-                Experience & Skills
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Previous Tutoring Experience</label>
-                  <p className="text-foreground whitespace-pre-wrap mt-1">
-                    {application.previous_tutoring_experience || 'None specified'}
-                  </p>
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
+            <div style={{ padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                💼 Experience & Skills
+              </h2>
+              <div style={{ space: '1.5rem' }}>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Previous Tutoring Experience</label>
+                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap' }}>{application.previous_tutoring_experience || 'None specified'}</p>
+                </div>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Work Experience</label>
+                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap' }}>{application.work_experience || 'None specified'}</p>
+                </div>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Skills & Competencies</label>
+                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap' }}>{application.skills_competencies}</p>
+                </div>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Languages Spoken</label>
+                  <p style={{ color: '#1f2937' }}>{application.languages_spoken}</p>
+                </div>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Availability</label>
+                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap' }}>{application.availability}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Work Experience</label>
-                  <p className="text-foreground whitespace-pre-wrap mt-1">
-                    {application.work_experience || 'None specified'}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Skills & Competencies</label>
-                  <p className="text-foreground whitespace-pre-wrap mt-1">{application.skills_competencies}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Languages Spoken</label>
-                  <p className="text-foreground mt-1">{application.languages_spoken}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Availability</label>
-                  <p className="text-foreground whitespace-pre-wrap mt-1">{application.availability}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Motivation Letter</label>
-                  <p className="text-foreground whitespace-pre-wrap mt-1">{application.motivation_letter}</p>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Motivation Letter</label>
+                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap' }}>{application.motivation_letter}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Documents */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Upload className="w-5 h-5" />
-                Documents
-              </CardTitle>
-              <CardDescription>
-                Required documents for your application
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
+            <div style={{ padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                📎 Documents
+              </h2>
+              <p style={{ color: '#6b7280', marginBottom: '1rem' }}>Required documents for your application</p>
+              <div style={{ space: '1rem' }}>
                 {REQUIRED_DOCUMENTS.map((doc) => {
                   const uploaded = uploadedDocuments.find(d => d.document_type === doc.type);
                   return (
-                    <div key={doc.type} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div key={doc.type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', marginBottom: '1rem' }}>
                       <div>
-                        <h4 className="font-medium">{doc.label}</h4>
-                        <p className="text-sm text-muted-foreground">{doc.description}</p>
+                        <h4 style={{ fontWeight: '500', color: '#1f2937' }}>{doc.label}</h4>
+                        <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>{doc.description}</p>
                         {uploaded && (
-                          <p className="text-sm text-green-600 mt-1">
+                          <p style={{ fontSize: '0.875rem', color: '#059669', marginTop: '0.25rem' }}>
                             ✓ Uploaded: {uploaded.file_name}
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div>
                         {uploaded ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
+                          <button 
+                            style={{ backgroundColor: '#3b82f6', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}
                             onClick={() => {/* Handle view/download */}}
                           >
-                            <FileText className="w-4 h-4 mr-2" />
                             View
-                          </Button>
+                          </button>
                         ) : (
-                          <Badge variant="destructive">Not Uploaded</Badge>
+                          <span style={{ color: '#dc2626', fontSize: '0.875rem' }}>Not Uploaded</span>
                         )}
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Application Timeline */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Application Timeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <div style={{ padding: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem' }}>Application Timeline</h2>
+              <div style={{ space: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                  <div style={{ width: '12px', height: '12px', backgroundColor: '#10b981', borderRadius: '50%' }}></div>
                   <div>
-                    <p className="font-medium">Application Created</p>
-                    <p className="text-sm text-muted-foreground">
+                    <p style={{ fontWeight: '500', color: '#1f2937' }}>Application Created</p>
+                    <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
                       {new Date(application.created_at).toLocaleDateString('en-ZA', {
                         year: 'numeric',
                         month: 'long',
@@ -428,11 +456,11 @@ const ApplicationView = () => {
                   </div>
                 </div>
                 {application.submitted_at && (
-                  <div className="flex items-center gap-4">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                    <div style={{ width: '12px', height: '12px', backgroundColor: '#3b82f6', borderRadius: '50%' }}></div>
                     <div>
-                      <p className="font-medium">Application Submitted</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p style={{ fontWeight: '500', color: '#1f2937' }}>Application Submitted</p>
+                      <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
                         {new Date(application.submitted_at).toLocaleDateString('en-ZA', {
                           year: 'numeric',
                           month: 'long',
@@ -445,26 +473,26 @@ const ApplicationView = () => {
                   </div>
                 )}
                 {application.status === 'approved' && (
-                  <div className="flex items-center gap-4">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                    <div style={{ width: '12px', height: '12px', backgroundColor: '#10b981', borderRadius: '50%' }}></div>
                     <div>
-                      <p className="font-medium">Application Approved</p>
-                      <p className="text-sm text-muted-foreground">Congratulations!</p>
+                      <p style={{ fontWeight: '500', color: '#1f2937' }}>Application Approved</p>
+                      <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Congratulations!</p>
                     </div>
                   </div>
                 )}
                 {application.status === 'rejected' && application.rejection_reason && (
-                  <div className="flex items-center gap-4">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ width: '12px', height: '12px', backgroundColor: '#dc2626', borderRadius: '50%' }}></div>
                     <div>
-                      <p className="font-medium">Application Rejected</p>
-                      <p className="text-sm text-muted-foreground">{application.rejection_reason}</p>
+                      <p style={{ fontWeight: '500', color: '#1f2937' }}>Application Rejected</p>
+                      <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>{application.rejection_reason}</p>
                     </div>
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </main>
     </div>
