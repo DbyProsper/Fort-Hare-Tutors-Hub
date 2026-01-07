@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { GraduationCap, Users, FileCheck, ChevronRight, CheckCircle2, Clock, Shield } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { TypeAnimation } from 'react-type-animation';
 
 const Index = () => {
   const { user, isAdmin } = useAuth();
@@ -60,11 +61,21 @@ const Index = () => {
               Applications Open for 2026
             </div>
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
-              <span className="inline-block animate-fade-in" style={{ animationDelay: '0.1s' }}>Shape</span>{' '}
-              <span className="inline-block animate-fade-in" style={{ animationDelay: '0.3s' }}>the</span>{' '}
-              <span className="inline-block animate-fade-in" style={{ animationDelay: '0.5s' }}>Future</span>{' '}
-              <span className="inline-block animate-fade-in" style={{ animationDelay: '0.7s' }}>of</span>{' '}
-              <span className="block text-accent animate-fade-in" style={{ animationDelay: '0.9s' }}>Learning at UFH</span>
+              <TypeAnimation
+                sequence={['Shape the Future of', 1000]}
+                speed={50}
+                startDelay={1500}
+                cursor={false}
+                className="inline-block"
+              />
+              <br />
+              <TypeAnimation
+                sequence={['Learning at UFH', 1000]}
+                speed={50}
+                startDelay={3500}
+                cursor={false}
+                className="block text-accent"
+              />
             </h1>
             <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.2s' }}>
               Join our tutoring program and help fellow students succeed. Share your knowledge, 
