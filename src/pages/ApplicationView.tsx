@@ -402,7 +402,19 @@ const ApplicationView = () => {
                         {uploaded ? (
                           <button 
                             style={{ backgroundColor: '#3b82f6', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}
-                            onClick={() => {/* Handle view/download */}}
+                            onClick={async () => {
+                              try {
+                                const { data, error } = await supabase.storage
+                                  .from('application-documents')
+                                  .download(uploaded.file_path);
+                                if (error) throw error;
+                                const url = URL.createObjectURL(data);
+                                window.open(url, '_blank');
+                              } catch (err) {
+                                console.error('Error viewing document:', err);
+                                toast.error('Failed to open document');
+                              }
+                            }}
                           >
                             View
                           </button>
