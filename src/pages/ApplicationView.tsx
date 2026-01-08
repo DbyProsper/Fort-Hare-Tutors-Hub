@@ -367,7 +367,7 @@ const ApplicationView = () => {
                 </div>
                 <div style={{ marginBottom: '1.5rem' }}>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Availability</label>
-                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap' }}>{application.availability}</p>
+                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap' }}>{typeof application.availability === 'object' ? application.availability?.description : application.availability}</p>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Motivation Letter</label>
