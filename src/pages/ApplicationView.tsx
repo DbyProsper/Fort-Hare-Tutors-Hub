@@ -252,13 +252,20 @@ const ApplicationView = () => {
       {/* Main Content */}
       <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          {/* Back Button */}
-          <div style={{ marginBottom: '2rem' }}>
+          {/* Back Button and Edit Button */}
+          <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Link to="/dashboard">
               <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'white', border: '1px solid #d1d5db', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: '#6b7280', textDecoration: 'none', cursor: 'pointer' }}>
                 ← Back to Dashboard
               </button>
             </Link>
+            {(application.status === 'draft' || application.status === 'pending') && (
+              <Link to={`/application/${id}/edit`}>
+                <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#3b82f6', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: 'white', textDecoration: 'none', cursor: 'pointer', fontWeight: '500' }}>
+                  ✏️ Edit Application
+                </button>
+              </Link>
+            )}
           </div>
 
           {/* Personal Information */}
