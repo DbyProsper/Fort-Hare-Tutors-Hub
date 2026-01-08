@@ -75,11 +75,12 @@ const Index = () => {
                   <ChevronRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
-              <Link to="/auth">
-                <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
-                  Learn More
-                </Button>
-              </Link>
+              <button 
+                onClick={() => document.getElementById('why-become-tutor')?.scrollIntoView({ behavior: 'smooth' })}
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border h-11 rounded-md px-8 border-white/30 text-white hover:bg-white/10"
+              >
+                Learn More
+              </button>
             </div>
           </div>
         </div>
@@ -87,7 +88,7 @@ const Index = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-background">
+      <section id="why-become-tutor" className="py-20 bg-background scroll-mt-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
