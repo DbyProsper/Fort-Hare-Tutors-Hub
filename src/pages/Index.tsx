@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { GraduationCap, Users, FileCheck, ChevronRight, CheckCircle2, Clock, Shield } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { TypeAnimation } from 'react-type-animation';
+
 
 const Index = () => {
   const { user, isAdmin } = useAuth();
@@ -60,22 +60,9 @@ const Index = () => {
               <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
               Applications Open for 2026
             </div>
-            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
-              <TypeAnimation
-                sequence={['Shape the Future of', 1000]}
-                speed={50}
-                startDelay={1500}
-                cursor={false}
-                className="inline-block"
-              />
-              <br />
-              <TypeAnimation
-                sequence={['Learning at UFH', 1000]}
-                speed={50}
-                startDelay={3500}
-                cursor={false}
-                className="block text-accent"
-              />
+            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight animate-fade-in" style={{ animationDelay: '0.1s' }}>
+              Shape the Future of
+              <span className="block text-accent">Learning at UFH</span>
             </h1>
             <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.2s' }}>
               Join our tutoring program and help fellow students succeed. Share your knowledge, 

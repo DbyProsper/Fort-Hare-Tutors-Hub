@@ -188,13 +188,13 @@ const EditApplication = () => {
         faculty: data.faculty || '',
         department: data.department || '',
         year_of_study: data.year_of_study || 1,
-        subjects_completed: data.subjects_completed || '',
-        subjects_to_tutor: data.subjects_to_tutor || '',
+        subjects_completed: Array.isArray(data.subjects_completed) ? data.subjects_completed.join(', ') : (data.subjects_completed || ''),
+        subjects_to_tutor: Array.isArray(data.subjects_to_tutor) ? data.subjects_to_tutor.join(', ') : (data.subjects_to_tutor || ''),
         previous_tutoring_experience: data.previous_tutoring_experience || '',
         work_experience: data.work_experience || '',
-        skills_competencies: data.skills_competencies || '',
-        languages_spoken: data.languages_spoken || '',
-        availability: data.availability || '',
+        skills_competencies: Array.isArray(data.skills_competencies) ? data.skills_competencies.join(', ') : (data.skills_competencies || ''),
+        languages_spoken: Array.isArray(data.languages_spoken) ? data.languages_spoken.join(', ') : (data.languages_spoken || ''),
+        availability: typeof data.availability === 'object' && data.availability !== null && !Array.isArray(data.availability) ? ((data.availability as Record<string, unknown>)?.description as string || JSON.stringify(data.availability)) : String(data.availability || ''),
         motivation_letter: data.motivation_letter || '',
       });
 
@@ -250,7 +250,25 @@ const EditApplication = () => {
       const { error } = await supabase
         .from('tutor_applications')
         .update({
-          ...data,
+          full_name: data.full_name,
+          student_number: data.student_number,
+          date_of_birth: data.date_of_birth,
+          gender: data.gender || null,
+          nationality: data.nationality,
+          residential_address: data.residential_address,
+          contact_number: data.contact_number,
+          degree_program: data.degree_program,
+          faculty: data.faculty,
+          department: data.department,
+          year_of_study: data.year_of_study,
+          subjects_completed: data.subjects_completed.split(',').map(s => s.trim()).filter(Boolean),
+          subjects_to_tutor: data.subjects_to_tutor.split(',').map(s => s.trim()).filter(Boolean),
+          previous_tutoring_experience: data.previous_tutoring_experience || null,
+          work_experience: data.work_experience || null,
+          skills_competencies: data.skills_competencies.split(',').map(s => s.trim()).filter(Boolean),
+          languages_spoken: data.languages_spoken.split(',').map(s => s.trim()).filter(Boolean),
+          availability: { description: data.availability },
+          motivation_letter: data.motivation_letter,
           updated_at: new Date().toISOString(),
         })
         .eq('id', application.id);
