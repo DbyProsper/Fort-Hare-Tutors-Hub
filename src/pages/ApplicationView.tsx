@@ -252,13 +252,20 @@ const ApplicationView = () => {
       {/* Main Content */}
       <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          {/* Back Button */}
-          <div style={{ marginBottom: '2rem' }}>
+          {/* Back Button and Edit Button */}
+          <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Link to="/dashboard">
               <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'white', border: '1px solid #d1d5db', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: '#6b7280', textDecoration: 'none', cursor: 'pointer' }}>
                 ← Back to Dashboard
               </button>
             </Link>
+            {(application.status === 'draft' || application.status === 'pending') && (
+              <Link to={`/application/${id}/edit`}>
+                <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#3b82f6', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: 'white', textDecoration: 'none', cursor: 'pointer', fontWeight: '500' }}>
+                  ✏️ Edit Application
+                </button>
+              </Link>
+            )}
           </div>
 
           {/* Personal Information */}
@@ -360,7 +367,7 @@ const ApplicationView = () => {
                 </div>
                 <div style={{ marginBottom: '1.5rem' }}>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Availability</label>
-                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap' }}>{application.availability}</p>
+                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap' }}>{typeof application.availability === 'object' ? application.availability?.description : application.availability}</p>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Motivation Letter</label>
@@ -395,7 +402,19 @@ const ApplicationView = () => {
                         {uploaded ? (
                           <button 
                             style={{ backgroundColor: '#3b82f6', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}
-                            onClick={() => {/* Handle view/download */}}
+                            onClick={async () => {
+                              try {
+                                const { data, error } = await supabase.storage
+                                  .from('application-documents')
+                                  .download(uploaded.file_path);
+                                if (error) throw error;
+                                const url = URL.createObjectURL(data);
+                                window.open(url, '_blank');
+                              } catch (err) {
+                                console.error('Error viewing document:', err);
+                                toast.error('Failed to open document');
+                              }
+                            }}
                           >
                             View
                           </button>

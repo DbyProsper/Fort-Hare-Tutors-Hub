@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { GraduationCap, Users, FileCheck, ChevronRight, CheckCircle2, Clock, Shield } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { TypeAnimation } from 'react-type-animation';
+
 
 const Index = () => {
   const { user, isAdmin } = useAuth();
@@ -60,22 +60,9 @@ const Index = () => {
               <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
               Applications Open for 2026
             </div>
-            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
-              <TypeAnimation
-                sequence={['Shape the Future of', 1000]}
-                speed={50}
-                startDelay={1500}
-                cursor={false}
-                className="inline-block"
-              />
-              <br />
-              <TypeAnimation
-                sequence={['Learning at UFH', 1000]}
-                speed={50}
-                startDelay={3500}
-                cursor={false}
-                className="block text-accent"
-              />
+            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight animate-fade-in" style={{ animationDelay: '0.1s' }}>
+              Shape the Future of
+              <span className="block text-accent">Learning at UFH</span>
             </h1>
             <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.2s' }}>
               Join our tutoring program and help fellow students succeed. Share your knowledge, 
@@ -88,11 +75,12 @@ const Index = () => {
                   <ChevronRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
-              <Link to="/auth">
-                <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
-                  Learn More
-                </Button>
-              </Link>
+              <button 
+                onClick={() => document.getElementById('why-become-tutor')?.scrollIntoView({ behavior: 'smooth' })}
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border h-11 rounded-md px-8 border-white/30 text-white hover:bg-white/10"
+              >
+                Learn More
+              </button>
             </div>
           </div>
         </div>
@@ -100,7 +88,7 @@ const Index = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-background">
+      <section id="why-become-tutor" className="py-20 bg-background scroll-mt-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
