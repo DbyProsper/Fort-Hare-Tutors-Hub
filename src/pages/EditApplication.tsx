@@ -218,10 +218,16 @@ const EditApplication = () => {
   };
 
   const nextStep = () => {
+    console.log('nextStep called, current step:', currentStep);
     const fields = getFieldsForStep(currentStep);
+    console.log('Fields to validate:', fields);
     const isValid = form.trigger(fields);
+    console.log('Validation result:', isValid);
     if (isValid) {
+      console.log('Moving to next step');
       setCurrentStep(prev => Math.min(prev + 1, 5));
+    } else {
+      console.log('Validation failed, staying on current step');
     }
   };
 
@@ -239,6 +245,78 @@ const EditApplication = () => {
         return ['previous_tutoring_experience', 'work_experience', 'skills_competencies', 'languages_spoken', 'availability', 'motivation_letter'];
       default:
         return [];
+    }
+  };
+
+  const handleFileUpload = async (documentType: string, file: File) => {
+    if (!application) return;
+
+    // Validate file
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Only PDF, JPG, and PNG files are allowed');
+      return;
+    }
+
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user?.id}/${application.id}/${documentType}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('application-documents')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        if (uploadError.message.includes('bucket not found') || uploadError.message.includes('Bucket not found')) {
+          toast.error('Document storage is not configured. Please contact an administrator.');
+        } else {
+          toast.error(uploadError.message || 'Failed to upload document');
+        }
+        return;
+      }
+
+      // Remove existing document of same type
+      const existingDoc = uploadedDocuments.find(d => d.document_type === documentType);
+      if (existingDoc?.id) {
+        await supabase
+          .from('application_documents')
+          .delete()
+          .eq('id', existingDoc.id);
+      }
+
+      // Save document record
+      const { data: docData, error: docError } = await supabase
+        .from('application_documents')
+        .insert({
+          application_id: application.id,
+          user_id: user?.id,
+          document_type: documentType,
+          file_name: file.name,
+          file_path: filePath,
+          file_size: file.size,
+          mime_type: file.type,
+        })
+        .select()
+        .single();
+
+      if (docError) throw docError;
+
+      setUploadedDocuments(prev => [
+        ...prev.filter(d => d.document_type !== documentType),
+        docData,
+      ]);
+
+      toast.success('Document uploaded successfully');
+    } catch (error: any) {
+      console.error('Error uploading document:', error);
+      toast.error(error.message || 'Failed to upload document');
     }
   };
 
@@ -791,15 +869,33 @@ const EditApplication = () => {
                                   View
                                 </Button>
                               ) : (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {/* Handle upload */}}
-                                >
-                                  <Upload className="w-4 h-4 mr-2" />
-                                  Upload
-                                </Button>
+                                <>
+                                  <input
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        handleFileUpload(doc.type, file);
+                                      }
+                                    }}
+                                    className="hidden"
+                                    id={`upload-${doc.type}`}
+                                  />
+                                  <label htmlFor={`upload-${doc.type}`}>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      asChild
+                                    >
+                                      <span className="cursor-pointer">
+                                        <Upload className="w-4 h-4 mr-2" />
+                                        Upload
+                                      </span>
+                                    </Button>
+                                  </label>
+                                </>
                               )}
                             </div>
                           </div>

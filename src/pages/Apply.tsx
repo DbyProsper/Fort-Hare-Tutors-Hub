@@ -214,10 +214,10 @@ const Apply = () => {
 
     // Check if form is valid for basic required fields
     const formData = form.getValues();
-    const basicFieldsValid = formData.full_name && formData.email;
+    const basicFieldsValid = formData.full_name;
 
     if (!basicFieldsValid) {
-      toast.error('Please fill in at least your name and email before saving');
+      toast.error('Please fill in at least your name before saving');
       return;
     }
 
@@ -324,7 +324,15 @@ const Apply = () => {
         .from('application-documents')
         .upload(filePath, file, { upsert: true });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        if (uploadError.message.includes('bucket not found') || uploadError.message.includes('Bucket not found')) {
+          toast.error('Document storage is not configured. Please contact an administrator.');
+        } else {
+          toast.error(uploadError.message || 'Failed to upload document');
+        }
+        return;
+      }
 
       // Remove existing document of same type
       const existingDoc = uploadedDocuments.find(d => d.document_type === documentType);

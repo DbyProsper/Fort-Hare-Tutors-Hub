@@ -139,32 +139,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: new Error('Please use your University of Fort Hare student email (@ufh.ac.za)') };
       }
 
-      // Check if user already exists by looking for a profile with this email
-      console.log('Checking if user already exists for email:', email);
-      const { data: existingProfile, error: profileCheckError } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .eq('email', email)
-        .maybeSingle();
-
-      console.log('Profile check result:', { existingProfile, profileCheckError });
-
-      if (existingProfile) {
-        console.log('User already exists with this email:', existingProfile.email);
-        return {
-          error: new Error('ACCOUNT_EXISTS'),
-          userExists: true
-        };
-      }
-
-      // Also check if there's an auth user with this email (even without a profile)
-      console.log('Checking auth users...');
-      // Note: We can't directly query auth.users, but we can try to check if the email exists
-      // by attempting a password reset or similar, but for now let's rely on the profile check
-
       const redirectUrl = `${window.location.origin}/`;
 
-      // Create the auth user - the database trigger will handle profile creation
+      // First, try to sign up - Supabase will tell us if the user already exists
       console.log('Attempting signup for email:', email);
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
@@ -184,13 +161,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Handle specific error cases for existing users
         const errorMessage = authError.message.toLowerCase();
+        console.log('Checking error message:', errorMessage);
         if (
           errorMessage.includes('already registered') ||
           errorMessage.includes('user already registered') ||
           errorMessage.includes('email already registered') ||
           errorMessage.includes('already exists') ||
-          errorMessage.includes('email address already in use')
+          errorMessage.includes('email address already in use') ||
+          errorMessage.includes('email already in use') ||
+          errorMessage.includes('user already exists') ||
+          errorMessage.includes('signup is disabled') ||
+          errorMessage.includes('email not confirmed')
         ) {
+          console.log('User already exists based on auth error');
           return {
             error: new Error('ACCOUNT_EXISTS'),
             userExists: true

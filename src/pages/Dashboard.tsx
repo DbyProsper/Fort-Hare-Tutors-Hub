@@ -86,12 +86,22 @@ const Dashboard = () => {
 
   const fetchApplication = async () => {
     try {
-      console.log('Fetching application for user:', user?.id);
+      console.log('Fetching application for user:', user?.id, 'email:', user?.email, 'session exists:', !!user);
       if (!user?.id) {
         console.warn('No user ID available for fetching application');
         setIsLoading(false);
         return;
       }
+
+      // First check if user has the student role
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'student')
+        .maybeSingle();
+
+      console.log('User role check:', { roleData, roleError });
 
       const { data, error } = await supabase
         .from('tutor_applications')
@@ -101,15 +111,26 @@ const Dashboard = () => {
         .limit(1)
         .maybeSingle();
 
-      console.log('Application fetch result:', { data, error });
+      console.log('Application fetch result:', { data, error, userId: user.id });
 
       if (error) {
-        console.error('Error fetching application:', error);
+        console.error('Database error fetching application:', error);
+        // Check if it's an RLS error
+        if (error.code === 'PGRST301') {
+          console.error('RLS policy error - user may not have permission to read applications');
+          // Try to fetch all applications to see if it's a general permission issue
+          const { data: allApps, error: allError } = await supabase
+            .from('tutor_applications')
+            .select('count')
+            .limit(1);
+          console.log('General applications access test:', { allApps, allError });
+        }
         toast.error('Failed to load your application');
         return;
       }
 
       setApplication(data);
+      console.log('Application loaded successfully:', data);
     } catch (error) {
       console.error('Unexpected error fetching application:', error);
       toast.error('Failed to load your application');
