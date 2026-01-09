@@ -139,9 +139,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: new Error('Please use your University of Fort Hare student email (@ufh.ac.za)') };
       }
 
+      // Check if user already exists by looking for a profile with this email
+      console.log('Checking if user already exists...');
+      const { data: existingProfile, error: profileCheckError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (existingProfile) {
+        console.log('User already exists with this email');
+        return {
+          error: new Error('ACCOUNT_EXISTS'),
+          userExists: true
+        };
+      }
+
+      // If profile check failed for reasons other than "not found", log but continue
+      if (profileCheckError && profileCheckError.code !== 'PGRST116') {
+        console.warn('Profile check failed:', profileCheckError);
+      }
+
       const redirectUrl = `${window.location.origin}/`;
 
       // Create the auth user - the database trigger will handle profile creation
+      console.log('Attempting signup for email:', email);
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -153,11 +175,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
 
+      console.log('Supabase signup response:', { authData, authError });
+
       if (authError) {
         console.error('Auth signup error:', authError);
 
-        // Handle specific error cases
-        if (authError.message.includes('already registered') || authError.message.includes('User already registered')) {
+        // Handle specific error cases for existing users
+        const errorMessage = authError.message.toLowerCase();
+        if (
+          errorMessage.includes('already registered') ||
+          errorMessage.includes('user already registered') ||
+          errorMessage.includes('email already registered') ||
+          errorMessage.includes('already exists') ||
+          errorMessage.includes('email address already in use')
+        ) {
           return {
             error: new Error('ACCOUNT_EXISTS'),
             userExists: true

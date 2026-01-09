@@ -183,7 +183,7 @@ const Apply = () => {
           work_experience: data.work_experience || '',
           skills_competencies: data.skills_competencies?.join(', ') || '',
           languages_spoken: data.languages_spoken?.join(', ') || '',
-          availability: JSON.stringify(data.availability) || '',
+          availability: typeof data.availability === 'object' && data.availability !== null && !Array.isArray(data.availability) ? ((data.availability as Record<string, unknown>)?.description as string || JSON.stringify(data.availability)) : String(data.availability || '{}'),
           motivation_letter: data.motivation_letter,
         });
 
@@ -205,49 +205,79 @@ const Apply = () => {
   };
 
   const handleSaveDraft = async () => {
+    console.log('Starting save draft, user:', user, 'applicationId:', applicationId);
+
+    if (!user) {
+      toast.error('You must be logged in to save a draft');
+      return;
+    }
+
+    // Check if form is valid for basic required fields
+    const formData = form.getValues();
+    const basicFieldsValid = formData.full_name && formData.email;
+
+    if (!basicFieldsValid) {
+      toast.error('Please fill in at least your name and email before saving');
+      return;
+    }
+
     setIsSaving(true);
     try {
       const formData = form.getValues();
+      console.log('Form data:', formData);
+
       const applicationData = {
         user_id: user?.id,
-        full_name: formData.full_name,
-        student_number: formData.student_number,
-        date_of_birth: formData.date_of_birth || null,
+        full_name: formData.full_name || 'Draft',
+        student_number: formData.student_number || 'Draft',
+        date_of_birth: formData.date_of_birth ? new Date(formData.date_of_birth).toISOString().split('T')[0] : '2000-01-01', // Default date for drafts
         gender: formData.gender || null,
-        nationality: formData.nationality,
-        residential_address: formData.residential_address,
-        contact_number: formData.contact_number,
+        nationality: formData.nationality || 'Draft',
+        residential_address: formData.residential_address || 'Draft',
+        contact_number: formData.contact_number || 'Draft',
         email: user?.email || '',
-        degree_program: formData.degree_program,
-        faculty: formData.faculty,
-        department: formData.department,
+        degree_program: formData.degree_program || 'Draft',
+        faculty: formData.faculty || 'Draft',
+        department: formData.department || 'Draft',
         year_of_study: formData.year_of_study || 1,
         subjects_completed: formData.subjects_completed?.split(',').map(s => s.trim()).filter(Boolean) || [],
         subjects_to_tutor: formData.subjects_to_tutor?.split(',').map(s => s.trim()).filter(Boolean) || [],
-        previous_tutoring_experience: formData.previous_tutoring_experience,
-        work_experience: formData.work_experience,
+        previous_tutoring_experience: formData.previous_tutoring_experience || null,
+        work_experience: formData.work_experience || null,
         skills_competencies: formData.skills_competencies?.split(',').map(s => s.trim()).filter(Boolean) || [],
         languages_spoken: formData.languages_spoken?.split(',').map(s => s.trim()).filter(Boolean) || [],
-        availability: { description: formData.availability },
-        motivation_letter: formData.motivation_letter,
+        availability: formData.availability ? (() => { try { return JSON.parse(formData.availability); } catch { return {}; } })() : {},
+        motivation_letter: formData.motivation_letter || 'Draft',
         status: 'draft' as const,
       };
 
+      console.log('Application data to save:', applicationData);
+
       if (applicationId) {
+        console.log('Updating existing application:', applicationId);
         const { error } = await supabase
           .from('tutor_applications')
           .update(applicationData)
           .eq('id', applicationId);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Update error:', error);
+          throw error;
+        }
+        console.log('Update successful');
       } else {
+        console.log('Inserting new application');
         const { data, error } = await supabase
           .from('tutor_applications')
           .insert(applicationData)
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Insert error:', error);
+          throw error;
+        }
+        console.log('Insert successful, new ID:', data.id);
         setApplicationId(data.id);
       }
 
