@@ -24,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state change:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
@@ -32,6 +33,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           setTimeout(() => {
             checkAdminRole(session.user.id);
+            // Ensure profile exists as fallback
+            ensureProfileExists(
+              session.user.id,
+              session.user.email || '',
+              session.user.user_metadata?.full_name || ''
+            );
           }, 0);
         } else {
           setIsAdmin(null);
@@ -41,12 +48,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
 
       if (session?.user) {
         checkAdminRole(session.user.id);
+        // Ensure profile exists as fallback
+        ensureProfileExists(
+          session.user.id,
+          session.user.email || '',
+          session.user.user_metadata?.full_name || ''
+        );
       } else {
         setIsAdmin(null);
       }
@@ -74,26 +88,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    // Validate UFH email domain
-    if (!email.endsWith('@ufh.ac.za')) {
-      return { error: new Error('Please use your University of Fort Hare student email (@ufh.ac.za)') };
+  const ensureProfileExists = async (userId: string, email: string, fullName: string) => {
+    try {
+      // Check if profile already exists
+      const { data: existingProfile, error: checkError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "not found"
+        console.error('Error checking profile existence:', checkError);
+        return;
+      }
+
+      // If profile doesn't exist, create it
+      if (!existingProfile) {
+        console.log('Profile not found, creating one...');
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            email: email,
+            full_name: fullName,
+          });
+
+        if (insertError) {
+          console.error('Error creating profile:', insertError);
+        } else {
+          console.log('Profile created successfully');
+        }
+      } else {
+        console.log('Profile already exists');
+      }
+    } catch (error) {
+      console.error('Unexpected error in ensureProfileExists:', error);
     }
+  };
 
-    const redirectUrl = `${window.location.origin}/`;
+  const signUp = async (email: string, password: string, fullName: string) => {
+    try {
+      // Validate UFH email domain
+      if (!email.endsWith('@ufh.ac.za')) {
+        return { error: new Error('Please use your University of Fort Hare student email (@ufh.ac.za)') };
+      }
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName,
+      const redirectUrl = `${window.location.origin}/`;
+
+      // Create the auth user - the database trigger will handle profile creation
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            full_name: fullName,
+          },
         },
-      },
-    });
+      });
 
-    return { error: error ? new Error(error.message) : null };
+      if (authError) {
+        console.error('Auth signup error:', authError);
+        return { error: new Error(authError.message) };
+      }
+
+      console.log('Auth user created successfully:', authData.user?.id);
+      return { error: null };
+    } catch (error) {
+      console.error('Unexpected error during signup:', error);
+      return { error: new Error('An unexpected error occurred during signup. Please try again.') };
+    }
   };
 
   const signIn = async (email: string, password: string) => {

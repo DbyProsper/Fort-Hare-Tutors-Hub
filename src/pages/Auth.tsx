@@ -95,13 +95,22 @@ const Auth = () => {
     setIsSubmitting(true);
     setError(null);
 
-    const { error } = await signUp(data.email, data.password, data.fullName);
-    
-    if (error) {
-      setError(error.message);
+    try {
+      const { error } = await signUp(data.email, data.password, data.fullName);
+
+      if (error) {
+        setError(error.message);
+        console.error('Signup error:', error.message);
+      } else {
+        toast.success('Account created successfully! Welcome to UFH Tutors.');
+        // Note: Navigation will happen automatically via useEffect when user state changes
+      }
+    } catch (error) {
+      console.error('Unexpected error during signup:', error);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      // Always stop loading, regardless of success or failure
       setIsSubmitting(false);
-    } else {
-      toast.success('Account created successfully! Welcome to UFH Tutors.');
     }
   };
 
