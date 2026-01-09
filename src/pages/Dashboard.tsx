@@ -86,18 +86,32 @@ const Dashboard = () => {
 
   const fetchApplication = async () => {
     try {
+      console.log('Fetching application for user:', user?.id);
+      if (!user?.id) {
+        console.warn('No user ID available for fetching application');
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('tutor_applications')
         .select('id, status, created_at, submitted_at, rejection_reason, full_name, degree_program, faculty')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
+      console.log('Application fetch result:', { data, error });
+
+      if (error) {
+        console.error('Error fetching application:', error);
+        toast.error('Failed to load your application');
+        return;
+      }
+
       setApplication(data);
     } catch (error) {
-      console.error('Error fetching application:', error);
+      console.error('Unexpected error fetching application:', error);
       toast.error('Failed to load your application');
     } finally {
       setIsLoading(false);

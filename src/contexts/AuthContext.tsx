@@ -140,25 +140,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Check if user already exists by looking for a profile with this email
-      console.log('Checking if user already exists...');
+      console.log('Checking if user already exists for email:', email);
       const { data: existingProfile, error: profileCheckError } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, email')
         .eq('email', email)
         .maybeSingle();
 
+      console.log('Profile check result:', { existingProfile, profileCheckError });
+
       if (existingProfile) {
-        console.log('User already exists with this email');
+        console.log('User already exists with this email:', existingProfile.email);
         return {
           error: new Error('ACCOUNT_EXISTS'),
           userExists: true
         };
       }
 
-      // If profile check failed for reasons other than "not found", log but continue
-      if (profileCheckError && profileCheckError.code !== 'PGRST116') {
-        console.warn('Profile check failed:', profileCheckError);
-      }
+      // Also check if there's an auth user with this email (even without a profile)
+      console.log('Checking auth users...');
+      // Note: We can't directly query auth.users, but we can try to check if the email exists
+      // by attempting a password reset or similar, but for now let's rely on the profile check
 
       const redirectUrl = `${window.location.origin}/`;
 
