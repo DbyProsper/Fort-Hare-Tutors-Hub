@@ -108,6 +108,7 @@ const EditApplication = () => {
   const { user, signOut } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [application, setApplication] = useState<any>(null);
@@ -219,6 +220,18 @@ const EditApplication = () => {
 
   const nextStep = () => {
     console.log('nextStep called, current step:', currentStep);
+
+    // Special validation for step 4 (Documents)
+    if (currentStep === 4) {
+      const missingDocs = REQUIRED_DOCUMENTS.filter(
+        doc => !uploadedDocuments.find(d => d.document_type === doc.type)
+      );
+      if (missingDocs.length > 0) {
+        toast.error(`Please upload all required documents before proceeding: ${missingDocs.map(d => d.label).join(', ')}`);
+        return;
+      }
+    }
+
     const fields = getFieldsForStep(currentStep);
     console.log('Fields to validate:', fields);
     const isValid = form.trigger(fields);
@@ -245,6 +258,75 @@ const EditApplication = () => {
         return ['previous_tutoring_experience', 'work_experience', 'skills_competencies', 'languages_spoken', 'availability', 'motivation_letter'];
       default:
         return [];
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    console.log('Starting save draft for edit, user:', user, 'application:', application);
+
+    if (!user || !application) {
+      toast.error('You must be logged in and have an application to save');
+      return;
+    }
+
+    // Check if form is valid for basic required fields
+    const formData = form.getValues();
+    const basicFieldsValid = formData.full_name;
+
+    if (!basicFieldsValid) {
+      toast.error('Please fill in at least your name before saving');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const formData = form.getValues();
+      console.log('Form data:', formData);
+
+      const applicationData = {
+        full_name: formData.full_name,
+        student_number: formData.student_number,
+        date_of_birth: formData.date_of_birth,
+        gender: formData.gender || null,
+        nationality: formData.nationality,
+        residential_address: formData.residential_address,
+        contact_number: formData.contact_number,
+        degree_program: formData.degree_program,
+        faculty: formData.faculty,
+        department: formData.department,
+        year_of_study: formData.year_of_study,
+        subjects_completed: formData.subjects_completed.split(',').map(s => s.trim()).filter(Boolean),
+        subjects_to_tutor: formData.subjects_to_tutor.split(',').map(s => s.trim()).filter(Boolean),
+        previous_tutoring_experience: formData.previous_tutoring_experience || null,
+        work_experience: formData.work_experience || null,
+        skills_competencies: formData.skills_competencies.split(',').map(s => s.trim()).filter(Boolean),
+        languages_spoken: formData.languages_spoken.split(',').map(s => s.trim()).filter(Boolean),
+        availability: { description: formData.availability },
+        motivation_letter: formData.motivation_letter,
+        status: 'draft' as const,
+        updated_at: new Date().toISOString(),
+      };
+
+      console.log('Application data to update:', applicationData);
+
+      const { error } = await supabase
+        .from('tutor_applications')
+        .update(applicationData)
+        .eq('id', application.id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Update error:', error);
+        throw error;
+      }
+
+      console.log('Draft update successful');
+      toast.success('Draft saved successfully');
+    } catch (error: any) {
+      console.error('Error saving draft:', error);
+      toast.error(error.message || 'Failed to save draft');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -969,7 +1051,7 @@ const EditApplication = () => {
               )}
 
               {/* Navigation */}
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <Button
                   type="button"
                   variant="outline"
@@ -979,31 +1061,48 @@ const EditApplication = () => {
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Previous
                 </Button>
-                
-                {currentStep < 5 ? (
-                  <Button type="button" onClick={nextStep}>
-                    Next
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                ) : (
-                  <Button 
-                    type="submit" 
-                    className="btn-gradient-accent text-accent-foreground"
-                    disabled={isSubmitting}
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSaveDraft}
+                    disabled={isSaving}
+                    className="gap-2"
                   >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Updating...
-                      </>
+                    {isSaving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <>
-                        <Save className="w-4 h-4 mr-2" />
-                        Update Application
-                      </>
+                      <Save className="w-4 h-4" />
                     )}
+                    Save Draft
                   </Button>
-                )}
+
+                  {currentStep < 5 ? (
+                    <Button type="button" onClick={nextStep}>
+                      Next
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  ) : (
+                    <Button
+                      type="submit"
+                      className="btn-gradient-accent text-accent-foreground"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          Update Application
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
             </form>
           </Form>

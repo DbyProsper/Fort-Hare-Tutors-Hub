@@ -139,9 +139,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: new Error('Please use your University of Fort Hare student email (@ufh.ac.za)') };
       }
 
+      // Check if user already exists by looking for a profile with this email
+      console.log('Checking if user already exists for email:', email);
+      const { data: existingProfile, error: profileCheckError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', email)
+        .maybeSingle();
+
+      console.log('Profile check result:', { existingProfile, profileCheckError });
+
+      if (existingProfile) {
+        console.log('User already exists with this email:', existingProfile.email);
+        return {
+          error: new Error('ACCOUNT_EXISTS'),
+          userExists: true
+        };
+      }
+
+      // If profile check failed for reasons other than "not found", log but continue
+      if (profileCheckError && profileCheckError.code !== 'PGRST116') {
+        console.warn('Profile check failed:', profileCheckError);
+      }
+
       const redirectUrl = `${window.location.origin}/`;
 
-      // First, try to sign up - Supabase will tell us if the user already exists
+      // Attempt signup
       console.log('Attempting signup for email:', email);
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,

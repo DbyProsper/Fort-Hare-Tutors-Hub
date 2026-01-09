@@ -208,7 +208,13 @@ CREATE POLICY "Users can view own documents"
 
 CREATE POLICY "Users can insert own documents"
   ON public.application_documents FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (
+    auth.uid() = user_id AND
+    EXISTS (
+      SELECT 1 FROM public.tutor_applications
+      WHERE id = application_id AND user_id = auth.uid()
+    )
+  );
 
 CREATE POLICY "Users can delete own documents"
   ON public.application_documents FOR DELETE
