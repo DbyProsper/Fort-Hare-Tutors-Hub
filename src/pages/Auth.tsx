@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { GraduationCap, Eye, EyeOff, ArrowLeft, Loader2, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const signInSchema = z.object({
@@ -51,6 +52,8 @@ const Auth = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginType, setLoginType] = useState<'student' | 'admin'>('student');
   const [error, setError] = useState<string | null>(null);
+  const [showCheckEmail, setShowCheckEmail] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string>('');
 
   useEffect(() => {
     if (user && !authLoading && isAdmin !== null) {
@@ -96,14 +99,29 @@ const Auth = () => {
     setError(null);
 
     try {
-      const { error } = await signUp(data.email, data.password, data.fullName);
+      const result = await signUp(data.email, data.password, data.fullName);
 
-      if (error) {
-        setError(error.message);
-        console.error('Signup error:', error.message);
-      } else {
+      if (result.error) {
+        if (result.error.message === 'ACCOUNT_EXISTS') {
+          // User already exists, redirect to sign in
+          setError('An account with this email already exists. Please sign in instead.');
+          setTimeout(() => {
+            setIsSignUp(false);
+            setError(null);
+          }, 3000);
+        } else {
+          setError(result.error.message);
+        }
+        console.error('Signup error:', result.error.message);
+      } else if (result.needsConfirmation) {
+        // Email confirmation required
+        setPendingEmail(data.email);
+        setShowCheckEmail(true);
+        toast.success('Account created! Please check your email to confirm your account.');
+      } else if (result.user && result.session) {
+        // User created and automatically signed in
         toast.success('Account created successfully! Welcome to UFH Tutors.');
-        // Note: Navigation will happen automatically via useEffect when user state changes
+        // Navigation will happen automatically via useEffect when user state changes
       }
     } catch (error) {
       console.error('Unexpected error during signup:', error);
@@ -135,16 +153,69 @@ const Auth = () => {
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-md animate-fade-in">
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <GraduationCap className="w-9 h-9 text-primary-foreground" />
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">UFH Tutor Portal</h1>
-            <p className="text-muted-foreground">University of Fort Hare</p>
-          </div>
+          {/* Check Email Screen */}
+          {showCheckEmail ? (
+            <Card className="border-0 shadow-xl">
+              <CardHeader className="space-y-1 pb-4 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <Mail className="w-9 h-9 text-primary-foreground" />
+                </div>
+                <CardTitle className="text-2xl">Check Your Email</CardTitle>
+                <CardDescription>
+                  We've sent a confirmation link to <strong>{pendingEmail}</strong>
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground text-center">
+                  Click the link in the email to verify your account and complete your registration.
+                  You can close this window and check your email.
+                </p>
+                <div className="space-y-2">
+                  <Button
+                    onClick={() => {
+                      setShowCheckEmail(false);
+                      setIsSignUp(false);
+                      setPendingEmail('');
+                    }}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    Back to Sign In
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      // Resend confirmation email
+                      supabase.auth.resend({
+                        type: 'signup',
+                        email: pendingEmail,
+                      }).then(({ error }) => {
+                        if (error) {
+                          toast.error('Failed to resend email');
+                        } else {
+                          toast.success('Confirmation email sent!');
+                        }
+                      });
+                    }}
+                    variant="ghost"
+                    className="w-full text-sm"
+                  >
+                    Didn't receive the email? Resend
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Logo */}
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <GraduationCap className="w-9 h-9 text-primary-foreground" />
+                </div>
+                <h1 className="text-2xl font-bold text-foreground">UFH Tutor Portal</h1>
+                <p className="text-muted-foreground">University of Fort Hare</p>
+              </div>
 
-          <Card className="border-0 shadow-xl">
+              <Card className="border-0 shadow-xl">
             <CardHeader className="space-y-1 pb-4">
               <CardTitle className="text-2xl text-center">
                 {isSignUp ? 'Create an Account' : 'Welcome Back'}
@@ -394,6 +465,8 @@ const Auth = () => {
           <p className="text-center text-sm text-muted-foreground mt-6">
             By continuing, you agree to UFH's Terms of Service and Privacy Policy.
           </p>
+            </>
+          )}
         </div>
       </div>
     </div>

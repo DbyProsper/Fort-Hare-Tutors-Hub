@@ -7,7 +7,13 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   isAdmin: boolean | null;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{
+    error: Error | null;
+    userExists?: boolean;
+    needsConfirmation?: boolean;
+    user?: User;
+    session?: Session;
+  }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
@@ -149,11 +155,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (authError) {
         console.error('Auth signup error:', authError);
+
+        // Handle specific error cases
+        if (authError.message.includes('already registered') || authError.message.includes('User already registered')) {
+          return {
+            error: new Error('ACCOUNT_EXISTS'),
+            userExists: true
+          };
+        }
+
         return { error: new Error(authError.message) };
       }
 
-      console.log('Auth user created successfully:', authData.user?.id);
-      return { error: null };
+      // Check if user was created but needs email confirmation
+      if (authData.user && !authData.session) {
+        console.log('User created, email confirmation required');
+        return {
+          error: null,
+          needsConfirmation: true,
+          user: authData.user
+        };
+      }
+
+      // User was created and automatically signed in (no email confirmation required)
+      if (authData.user && authData.session) {
+        console.log('User created and signed in automatically');
+        return {
+          error: null,
+          user: authData.user,
+          session: authData.session
+        };
+      }
+
+      console.log('Unexpected signup response:', authData);
+      return { error: new Error('Unexpected response from signup service') };
     } catch (error) {
       console.error('Unexpected error during signup:', error);
       return { error: new Error('An unexpected error occurred during signup. Please try again.') };
