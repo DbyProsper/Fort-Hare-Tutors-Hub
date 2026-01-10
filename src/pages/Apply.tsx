@@ -237,17 +237,21 @@ const Apply = () => {
         residential_address: formData.residential_address || 'Draft',
         contact_number: formData.contact_number || 'Draft',
         email: user?.email || '',
+        degree: formData.degree_program || 'Draft', // Map degree_program to degree
         degree_program: formData.degree_program || 'Draft',
         faculty: formData.faculty || 'Draft',
         department: formData.department || 'Draft',
         year_of_study: formData.year_of_study || 1,
+        subjects: (formData.subjects_completed || '') + (formData.subjects_to_tutor ? ', ' + formData.subjects_to_tutor : ''), // Combine as text
         subjects_completed: formData.subjects_completed?.split(',').map(s => s.trim()).filter(Boolean) || [],
         subjects_to_tutor: formData.subjects_to_tutor?.split(',').map(s => s.trim()).filter(Boolean) || [],
+        experience: (formData.previous_tutoring_experience || '') + (formData.work_experience ? ', ' + formData.work_experience : ''), // Combine as text
         previous_tutoring_experience: formData.previous_tutoring_experience || null,
         work_experience: formData.work_experience || null,
         skills_competencies: formData.skills_competencies?.split(',').map(s => s.trim()).filter(Boolean) || [],
         languages_spoken: formData.languages_spoken?.split(',').map(s => s.trim()).filter(Boolean) || [],
         availability: formData.availability ? (() => { try { return JSON.parse(formData.availability); } catch { return {}; } })() : {},
+        motivation: formData.motivation_letter || 'Draft', // Map motivation_letter to motivation
         motivation_letter: formData.motivation_letter || 'Draft',
         status: 'draft' as const,
       };
@@ -344,10 +348,20 @@ const Apply = () => {
           .eq('id', existingDoc.id);
       }
 
+      // Generate a UUID for the document
+      const generateUUID = () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      };
+
       // Save document record
       const { data: docData, error: docError } = await supabase
         .from('application_documents')
         .insert({
+          id: generateUUID(),
           application_id: appId,
           user_id: user?.id,
           document_type: documentType,
@@ -355,6 +369,7 @@ const Apply = () => {
           file_path: filePath,
           file_size: file.size,
           mime_type: file.type,
+          uploaded_at: new Date().toISOString(),
         })
         .select()
         .single();
@@ -400,17 +415,21 @@ const Apply = () => {
         residential_address: data.residential_address,
         contact_number: data.contact_number,
         email: user?.email || '',
+        degree: data.degree_program, // Map degree_program to degree
         degree_program: data.degree_program,
         faculty: data.faculty,
         department: data.department,
         year_of_study: data.year_of_study,
+        subjects: (data.subjects_completed || '') + (data.subjects_to_tutor ? ', ' + data.subjects_to_tutor : ''), // Combine as text
         subjects_completed: data.subjects_completed.split(',').map(s => s.trim()),
         subjects_to_tutor: data.subjects_to_tutor.split(',').map(s => s.trim()),
+        experience: (data.previous_tutoring_experience || '') + (data.work_experience ? ', ' + data.work_experience : ''), // Combine as text
         previous_tutoring_experience: data.previous_tutoring_experience,
         work_experience: data.work_experience,
         skills_competencies: data.skills_competencies.split(',').map(s => s.trim()),
         languages_spoken: data.languages_spoken.split(',').map(s => s.trim()),
         availability: { description: data.availability },
+        motivation: data.motivation_letter, // Map motivation_letter to motivation
         motivation_letter: data.motivation_letter,
         status: 'pending' as const,
         submitted_at: new Date().toISOString(),

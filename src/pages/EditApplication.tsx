@@ -219,23 +219,26 @@ const EditApplication = () => {
     }
   };
 
-  const nextStep = () => {
+  const nextStep = async () => {
     logger.log('nextStep called, current step:', currentStep);
 
     // Special validation for step 4 (Documents)
     if (currentStep === 4) {
+      logger.log('On documents step, checking uploaded documents...');
       const missingDocs = REQUIRED_DOCUMENTS.filter(
         doc => !uploadedDocuments.find(d => d.document_type === doc.type)
       );
+      logger.log('Missing documents:', missingDocs);
       if (missingDocs.length > 0) {
         toast.error(`Please upload all required documents before proceeding: ${missingDocs.map(d => d.label).join(', ')}`);
         return;
       }
+      logger.log('All documents uploaded, proceeding to review step');
     }
 
     const fields = getFieldsForStep(currentStep);
     logger.log('Fields to validate:', fields);
-    const isValid = form.trigger(fields);
+    const isValid = await form.trigger(fields);
     logger.log('Validation result:', isValid);
     if (isValid) {
       logger.log('Moving to next step');
@@ -285,25 +288,30 @@ const EditApplication = () => {
       logger.log('Saving draft...');
 
       const applicationData = {
-        full_name: formData.full_name,
-        student_number: formData.student_number,
-        date_of_birth: formData.date_of_birth,
+        full_name: formData.full_name || '',
+        student_number: formData.student_number || '',
+        date_of_birth: formData.date_of_birth || null,
         gender: formData.gender || null,
-        nationality: formData.nationality,
-        residential_address: formData.residential_address,
-        contact_number: formData.contact_number,
-        degree_program: formData.degree_program,
-        faculty: formData.faculty,
-        department: formData.department,
-        year_of_study: formData.year_of_study,
-        subjects_completed: formData.subjects_completed.split(',').map(s => s.trim()).filter(Boolean),
-        subjects_to_tutor: formData.subjects_to_tutor.split(',').map(s => s.trim()).filter(Boolean),
+        nationality: formData.nationality || '',
+        residential_address: formData.residential_address || '',
+        contact_number: formData.contact_number || '',
+        email: user?.email || '',
+        degree: formData.degree_program || '', // Map degree_program to degree
+        degree_program: formData.degree_program || '',
+        faculty: formData.faculty || '',
+        department: formData.department || '',
+        year_of_study: formData.year_of_study || 1,
+        subjects: (formData.subjects_completed || '') + (formData.subjects_to_tutor ? ', ' + formData.subjects_to_tutor : ''), // Combine as text
+        subjects_completed: (formData.subjects_completed || '').split(',').map(s => s.trim()).filter(Boolean),
+        subjects_to_tutor: (formData.subjects_to_tutor || '').split(',').map(s => s.trim()).filter(Boolean),
+        experience: (formData.previous_tutoring_experience || '') + (formData.work_experience ? ', ' + formData.work_experience : ''), // Combine experience
         previous_tutoring_experience: formData.previous_tutoring_experience || null,
         work_experience: formData.work_experience || null,
-        skills_competencies: formData.skills_competencies.split(',').map(s => s.trim()).filter(Boolean),
-        languages_spoken: formData.languages_spoken.split(',').map(s => s.trim()).filter(Boolean),
-        availability: { description: formData.availability },
-        motivation_letter: formData.motivation_letter,
+        skills_competencies: (formData.skills_competencies || '').split(',').map(s => s.trim()).filter(Boolean),
+        languages_spoken: (formData.languages_spoken || '').split(',').map(s => s.trim()).filter(Boolean),
+        availability: { description: formData.availability || '' },
+        motivation: formData.motivation_letter || '', // Map motivation_letter to motivation
+        motivation_letter: formData.motivation_letter || '',
         status: 'draft' as const,
         updated_at: new Date().toISOString(),
       };
@@ -318,6 +326,7 @@ const EditApplication = () => {
 
       if (error) {
         logger.error('Update error:', error);
+        console.error('Save draft error details:', error);
         throw error;
       }
 
@@ -374,10 +383,20 @@ const EditApplication = () => {
           .eq('id', existingDoc.id);
       }
 
+      // Generate a UUID for the document
+      const generateUUID = () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      };
+
       // Save document record
       const { data: docData, error: docError } = await supabase
         .from('application_documents')
         .insert({
+          id: generateUUID(),
           application_id: application.id,
           user_id: user?.id,
           document_type: documentType,
@@ -385,6 +404,7 @@ const EditApplication = () => {
           file_path: filePath,
           file_size: file.size,
           mime_type: file.type,
+          uploaded_at: new Date().toISOString(),
         })
         .select()
         .single();
@@ -406,6 +426,25 @@ const EditApplication = () => {
   const handleSubmit = async (data: ApplicationFormData) => {
     if (!application) return;
 
+    // Check if all required documents are uploaded
+    const missingDocs = REQUIRED_DOCUMENTS.filter(
+      doc => !uploadedDocuments.find(d => d.document_type === doc.type)
+    );
+
+    if (missingDocs.length > 0) {
+      toast.error(`Please upload all required documents before submitting: ${missingDocs.map(d => d.label).join(', ')}`);
+      return;
+    }
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      'Are you sure you want to submit your application? Once submitted, you will not be able to make further changes. Please ensure all information is correct and all required documents are uploaded.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const { error } = await supabase
@@ -418,29 +457,40 @@ const EditApplication = () => {
           nationality: data.nationality,
           residential_address: data.residential_address,
           contact_number: data.contact_number,
+          email: user?.email || '',
+          degree: data.degree_program, // Map degree_program to degree
           degree_program: data.degree_program,
           faculty: data.faculty,
           department: data.department,
           year_of_study: data.year_of_study,
+          subjects: (data.subjects_completed || '') + (data.subjects_to_tutor ? ', ' + data.subjects_to_tutor : ''), // Combine as text
           subjects_completed: data.subjects_completed.split(',').map(s => s.trim()).filter(Boolean),
           subjects_to_tutor: data.subjects_to_tutor.split(',').map(s => s.trim()).filter(Boolean),
+          experience: (data.previous_tutoring_experience || '') + (data.work_experience ? ', ' + data.work_experience : ''), // Combine as text
           previous_tutoring_experience: data.previous_tutoring_experience || null,
           work_experience: data.work_experience || null,
           skills_competencies: data.skills_competencies.split(',').map(s => s.trim()).filter(Boolean),
           languages_spoken: data.languages_spoken.split(',').map(s => s.trim()).filter(Boolean),
           availability: { description: data.availability },
+          motivation: data.motivation_letter, // Map motivation_letter to motivation
           motivation_letter: data.motivation_letter,
+          status: 'pending',
+          submitted_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq('id', application.id);
 
-      if (error) throw error;
+      if (error) {
+        logger.error('Submit error:', error);
+        console.error('Submit application error details:', error);
+        throw error;
+      }
 
-      toast.success('Application updated successfully!');
+      toast.success('Application submitted successfully! Your application is now under review.');
       navigate('/dashboard');
     } catch (error) {
-      logger.error('Error updating application:', error);
-      toast.error('Failed to update application');
+      logger.error('Error submitting application:', error);
+      toast.error('Failed to submit application');
     } finally {
       setIsSubmitting(false);
     }
@@ -1080,7 +1130,7 @@ const EditApplication = () => {
                   </Button>
 
                   {currentStep < 5 ? (
-                    <Button type="button" onClick={nextStep}>
+                    <Button type="button" onClick={(e) => { e.preventDefault(); nextStep(); }}>
                       Next
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
@@ -1097,8 +1147,8 @@ const EditApplication = () => {
                         </>
                       ) : (
                         <>
-                          <Save className="w-4 h-4 mr-2" />
-                          Update Application
+                          <Send className="w-4 h-4 mr-2" />
+                          Submit Application
                         </>
                       )}
                     </Button>

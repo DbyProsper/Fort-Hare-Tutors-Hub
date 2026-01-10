@@ -150,6 +150,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       console.log('Profile check result:', { existingProfile, profileCheckError });
 
+      // Also check total profiles count for debugging
+      const { count: profileCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+      console.log('Total profiles in database:', profileCount);
+
       if (existingProfile) {
         console.log('User already exists with this email:', existingProfile.email);
         return {
