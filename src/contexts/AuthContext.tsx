@@ -141,17 +141,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Check if user already exists by looking for a profile with this email
-      logger.log('Checking if user already exists');
+      console.log('Checking if user already exists for email:', email);
       const { data: existingProfile, error: profileCheckError } = await supabase
         .from('profiles')
         .select('id, email')
         .eq('email', email)
         .maybeSingle();
 
-      logger.log('Profile check result:', { exists: !!existingProfile, error: !!profileCheckError });
+      console.log('Profile check result:', { existingProfile, profileCheckError });
 
       if (existingProfile) {
-        logger.log('User already exists with this email');
+        console.log('User already exists with this email:', existingProfile.email);
         return {
           error: new Error('ACCOUNT_EXISTS'),
           userExists: true
