@@ -21,6 +21,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
 
 interface UploadedDocument {
   id?: string;
@@ -89,15 +90,15 @@ const ApplicationView = () => {
   const [application, setApplication] = useState<any>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
 
-  console.log('ApplicationView rendered with id:', id, 'user:', user);
+  logger.log('ApplicationView rendered');
 
   useEffect(() => {
-    console.log('useEffect triggered');
+    logger.log('useEffect triggered');
     loadApplication();
 
     // Fallback timeout in case loading gets stuck
     const timeout = setTimeout(() => {
-      console.log('Loading timeout reached, forcing isLoading to false');
+      logger.log('Loading timeout reached, forcing isLoading to false');
       setIsLoading(false);
       toast.error('Loading timed out. Please check your connection and try again.');
     }, 5000); // 5 seconds
@@ -126,9 +127,9 @@ const ApplicationView = () => {
   }
 
   const loadApplication = async () => {
-    console.log('Starting loadApplication for id:', id, 'user:', user?.id);
+    logger.log('Starting loadApplication');
     try {
-      console.log('Making Supabase query...');
+      logger.log('Making Supabase query...');
       const { data, error } = await supabase
         .from('tutor_applications')
         .select('*')
@@ -136,44 +137,44 @@ const ApplicationView = () => {
         .eq('user_id', user?.id)
         .single();
 
-      console.log('Query result:', { data: !!data, error });
+      logger.log('Query result received');
 
       if (error) {
-        console.error('Supabase error:', error);
+        logger.error('Supabase error:', error);
         throw error;
       }
 
       if (!data) {
-        console.log('No application data found');
+        logger.log('No application data found');
         toast.error('Application not found');
         navigate('/dashboard');
         return;
       }
 
-      console.log('Setting application data');
+      logger.log('Setting application data');
       setApplication(data);
 
       // Load documents
-      console.log('Loading documents...');
+      logger.log('Loading documents...');
       const { data: docs, error: docsError } = await supabase
         .from('application_documents')
         .select('*')
         .eq('application_id', id);
 
-      console.log('Documents query result:', { docs: !!docs, docsError });
+      logger.log('Documents query completed');
 
       if (!docsError && docs) {
         setUploadedDocuments(docs);
       }
 
-      console.log('Application loaded successfully');
+      logger.log('Application loaded successfully');
 
     } catch (error) {
-      console.error('Error in loadApplication:', error);
+      logger.error('Error in loadApplication:', error);
       toast.error('Failed to load application');
       navigate('/dashboard');
     } finally {
-      console.log('Setting isLoading to false');
+      logger.log('Setting isLoading to false');
       setIsLoading(false);
     }
   };

@@ -30,6 +30,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
 
 const FACULTIES = [
   'Faculty of Education',
@@ -200,12 +201,12 @@ const Apply = () => {
         toast.info('Continuing from your saved draft');
       }
     } catch (error) {
-      console.error('Error checking existing application:', error);
+      logger.error('Error checking existing application:', error);
     }
   };
 
   const handleSaveDraft = async () => {
-    console.log('Starting save draft, user:', user, 'applicationId:', applicationId);
+    logger.log('Starting save draft');
 
     if (!user) {
       toast.error('You must be logged in to save a draft');
@@ -224,7 +225,7 @@ const Apply = () => {
     setIsSaving(true);
     try {
       const formData = form.getValues();
-      console.log('Form data:', formData);
+      logger.log('Saving draft...');
 
       const applicationData = {
         user_id: user?.id,
@@ -251,22 +252,22 @@ const Apply = () => {
         status: 'draft' as const,
       };
 
-      console.log('Application data to save:', applicationData);
+      logger.log('Application data prepared');
 
       if (applicationId) {
-        console.log('Updating existing application:', applicationId);
+        logger.log('Updating existing application');
         const { error } = await supabase
           .from('tutor_applications')
           .update(applicationData)
           .eq('id', applicationId);
 
         if (error) {
-          console.error('Update error:', error);
+          logger.error('Update error:', error);
           throw error;
         }
-        console.log('Update successful');
+        logger.log('Update successful');
       } else {
-        console.log('Inserting new application');
+        logger.log('Inserting new application');
         const { data, error } = await supabase
           .from('tutor_applications')
           .insert(applicationData)
@@ -274,16 +275,16 @@ const Apply = () => {
           .single();
 
         if (error) {
-          console.error('Insert error:', error);
+          logger.error('Insert error:', error);
           throw error;
         }
-        console.log('Insert successful, new ID:', data.id);
+        logger.log('Insert successful');
         setApplicationId(data.id);
       }
 
       toast.success('Draft saved successfully');
     } catch (error: any) {
-      console.error('Error saving draft:', error);
+      logger.error('Error saving draft:', error);
       toast.error(error.message || 'Failed to save draft');
     } finally {
       setIsSaving(false);
@@ -325,7 +326,7 @@ const Apply = () => {
         .upload(filePath, file, { upsert: true });
 
       if (uploadError) {
-        console.error('Upload error:', uploadError);
+        logger.error('Upload error:', uploadError);
         if (uploadError.message.includes('bucket not found') || uploadError.message.includes('Bucket not found')) {
           toast.error('Document storage is not configured. Please contact an administrator.');
         } else {
@@ -367,7 +368,7 @@ const Apply = () => {
 
       toast.success('Document uploaded successfully');
     } catch (error: any) {
-      console.error('Error uploading document:', error);
+      logger.error('Error uploading document:', error);
       toast.error(error.message || 'Failed to upload document');
     } finally {
       setIsUploading(null);
@@ -433,7 +434,7 @@ const Apply = () => {
       toast.success('Application submitted successfully!');
       navigate('/dashboard');
     } catch (error: any) {
-      console.error('Error submitting application:', error);
+      logger.error('Error submitting application:', error);
       toast.error(error.message || 'Failed to submit application');
     } finally {
       setIsSubmitting(false);
