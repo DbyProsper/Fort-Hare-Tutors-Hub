@@ -30,6 +30,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
 
 const FACULTIES = [
   'Faculty of Education',
@@ -210,7 +211,7 @@ const EditApplication = () => {
       }
 
     } catch (error) {
-      console.error('Error loading application:', error);
+      logger.error('Error loading application:', error);
       toast.error('Failed to load application');
       navigate('/dashboard');
     } finally {
@@ -219,7 +220,7 @@ const EditApplication = () => {
   };
 
   const nextStep = () => {
-    console.log('nextStep called, current step:', currentStep);
+    logger.log('nextStep called, current step:', currentStep);
 
     // Special validation for step 4 (Documents)
     if (currentStep === 4) {
@@ -233,14 +234,14 @@ const EditApplication = () => {
     }
 
     const fields = getFieldsForStep(currentStep);
-    console.log('Fields to validate:', fields);
+    logger.log('Fields to validate:', fields);
     const isValid = form.trigger(fields);
-    console.log('Validation result:', isValid);
+    logger.log('Validation result:', isValid);
     if (isValid) {
-      console.log('Moving to next step');
+      logger.log('Moving to next step');
       setCurrentStep(prev => Math.min(prev + 1, 5));
     } else {
-      console.log('Validation failed, staying on current step');
+      logger.log('Validation failed, staying on current step');
     }
   };
 
@@ -262,7 +263,7 @@ const EditApplication = () => {
   };
 
   const handleSaveDraft = async () => {
-    console.log('Starting save draft for edit, user:', user, 'application:', application);
+    logger.log('Starting save draft for edit');
 
     if (!user || !application) {
       toast.error('You must be logged in and have an application to save');
@@ -281,7 +282,7 @@ const EditApplication = () => {
     setIsSaving(true);
     try {
       const formData = form.getValues();
-      console.log('Form data:', formData);
+      logger.log('Saving draft...');
 
       const applicationData = {
         full_name: formData.full_name,
@@ -307,7 +308,7 @@ const EditApplication = () => {
         updated_at: new Date().toISOString(),
       };
 
-      console.log('Application data to update:', applicationData);
+      logger.log('Application data prepared');
 
       const { error } = await supabase
         .from('tutor_applications')
@@ -316,14 +317,14 @@ const EditApplication = () => {
         .eq('user_id', user.id);
 
       if (error) {
-        console.error('Update error:', error);
+        logger.error('Update error:', error);
         throw error;
       }
 
-      console.log('Draft update successful');
+      logger.log('Draft update successful');
       toast.success('Draft saved successfully');
     } catch (error: any) {
-      console.error('Error saving draft:', error);
+      logger.error('Error saving draft:', error);
       toast.error(error.message || 'Failed to save draft');
     } finally {
       setIsSaving(false);
@@ -355,7 +356,7 @@ const EditApplication = () => {
         .upload(filePath, file, { upsert: true });
 
       if (uploadError) {
-        console.error('Upload error:', uploadError);
+        logger.error('Upload error:', uploadError);
         if (uploadError.message.includes('bucket not found') || uploadError.message.includes('Bucket not found')) {
           toast.error('Document storage is not configured. Please contact an administrator.');
         } else {
@@ -397,7 +398,7 @@ const EditApplication = () => {
 
       toast.success('Document uploaded successfully');
     } catch (error: any) {
-      console.error('Error uploading document:', error);
+      logger.error('Error uploading document:', error);
       toast.error(error.message || 'Failed to upload document');
     }
   };
@@ -438,7 +439,7 @@ const EditApplication = () => {
       toast.success('Application updated successfully!');
       navigate('/dashboard');
     } catch (error) {
-      console.error('Error updating application:', error);
+      logger.error('Error updating application:', error);
       toast.error('Failed to update application');
     } finally {
       setIsSubmitting(false);

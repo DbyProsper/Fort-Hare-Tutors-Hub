@@ -26,6 +26,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
 
 interface Application {
   id: string;
@@ -111,7 +112,7 @@ const Admin = () => {
       if (error) throw error;
       setApplications(data || []);
     } catch (error) {
-      console.error('Error fetching applications:', error);
+      logger.error('Error fetching applications:', error);
       toast.error('Failed to load applications');
     } finally {
       setIsLoading(false);
@@ -128,7 +129,7 @@ const Admin = () => {
       if (error) throw error;
       setDocuments(data || []);
     } catch (error) {
-      console.error('Error fetching documents:', error);
+      logger.error('Error fetching documents:', error);
     }
   };
 
@@ -178,7 +179,7 @@ const Admin = () => {
       setIsRejecting(false);
       setRejectionReason('');
     } catch (error: any) {
-      console.error('Error updating application:', error);
+      logger.error('Error updating application:', error);
       toast.error(error.message || 'Failed to update application');
     } finally {
       setIsUpdating(false);
@@ -202,7 +203,7 @@ const Admin = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error downloading document:', error);
+      logger.error('Error downloading document:', error);
       toast.error('Failed to download document');
     }
   };

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
 
 interface AuthContextType {
   user: User | null;
@@ -30,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth state change:', event, session?.user?.id);
+        logger.log('Auth state change:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
@@ -54,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.id);
+      logger.log('Initial session check:', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
@@ -104,13 +105,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "not found"
-        console.error('Error checking profile existence:', checkError);
+        logger.error('Error checking profile existence:', checkError);
         return;
       }
 
       // If profile doesn't exist, create it
       if (!existingProfile) {
-        console.log('Profile not found, creating one...');
+        logger.log('Profile not found, creating one...');
         const { error: insertError } = await supabase
           .from('profiles')
           .insert({
@@ -120,15 +121,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
 
         if (insertError) {
-          console.error('Error creating profile:', insertError);
+          logger.error('Error creating profile:', insertError);
         } else {
-          console.log('Profile created successfully');
+          logger.log('Profile created successfully');
         }
       } else {
-        console.log('Profile already exists');
+        logger.log('Profile already exists');
       }
     } catch (error) {
-      console.error('Unexpected error in ensureProfileExists:', error);
+      logger.error('Unexpected error in ensureProfileExists:', error);
     }
   };
 
@@ -140,17 +141,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Check if user already exists by looking for a profile with this email
-      console.log('Checking if user already exists for email:', email);
+      logger.log('Checking if user already exists');
       const { data: existingProfile, error: profileCheckError } = await supabase
         .from('profiles')
         .select('id, email')
         .eq('email', email)
         .maybeSingle();
 
-      console.log('Profile check result:', { existingProfile, profileCheckError });
+      logger.log('Profile check result:', { exists: !!existingProfile, error: !!profileCheckError });
 
       if (existingProfile) {
-        console.log('User already exists with this email:', existingProfile.email);
+        logger.log('User already exists with this email');
         return {
           error: new Error('ACCOUNT_EXISTS'),
           userExists: true
@@ -159,13 +160,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // If profile check failed for reasons other than "not found", log but continue
       if (profileCheckError && profileCheckError.code !== 'PGRST116') {
-        console.warn('Profile check failed:', profileCheckError);
+        logger.warn('Profile check failed:', profileCheckError);
       }
 
       const redirectUrl = `${window.location.origin}/`;
 
       // Attempt signup
-      console.log('Attempting signup for email:', email);
+      logger.log('Attempting signup');
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -177,14 +178,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
 
-      console.log('Supabase signup response:', { authData, authError });
+      logger.log('Signup response received');
 
       if (authError) {
-        console.error('Auth signup error:', authError);
+        logger.error('Auth signup error:', authError.message);
 
         // Handle specific error cases for existing users
         const errorMessage = authError.message.toLowerCase();
-        console.log('Checking error message:', errorMessage);
         if (
           errorMessage.includes('already registered') ||
           errorMessage.includes('user already registered') ||
@@ -196,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           errorMessage.includes('signup is disabled') ||
           errorMessage.includes('email not confirmed')
         ) {
-          console.log('User already exists based on auth error');
+          logger.log('User already exists based on auth error');
           return {
             error: new Error('ACCOUNT_EXISTS'),
             userExists: true
@@ -208,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Check if user was created but needs email confirmation
       if (authData.user && !authData.session) {
-        console.log('User created, email confirmation required');
+        logger.log('User created, email confirmation required');
         return {
           error: null,
           needsConfirmation: true,
@@ -218,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // User was created and automatically signed in (no email confirmation required)
       if (authData.user && authData.session) {
-        console.log('User created and signed in automatically');
+        logger.log('User created and signed in automatically');
         return {
           error: null,
           user: authData.user,
@@ -226,10 +226,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      console.log('Unexpected signup response:', authData);
+      logger.log('Unexpected signup response');
       return { error: new Error('Unexpected response from signup service') };
     } catch (error) {
-      console.error('Unexpected error during signup:', error);
+      logger.error('Unexpected error during signup:', error);
       return { error: new Error('An unexpected error occurred during signup. Please try again.') };
     }
   };

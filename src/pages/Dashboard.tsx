@@ -21,6 +21,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
 
 interface Application {
   id: string;
@@ -86,9 +87,9 @@ const Dashboard = () => {
 
   const fetchApplication = async () => {
     try {
-      console.log('Fetching application for user:', user?.id, 'email:', user?.email, 'session exists:', !!user);
+      logger.log('Fetching application for user');
       if (!user?.id) {
-        console.warn('No user ID available for fetching application');
+        logger.warn('No user ID available for fetching application');
         setIsLoading(false);
         return;
       }
@@ -101,7 +102,7 @@ const Dashboard = () => {
         .eq('role', 'student')
         .maybeSingle();
 
-      console.log('User role check:', { roleData, roleError });
+      logger.log('User role check completed');
 
       const { data, error } = await supabase
         .from('tutor_applications')
@@ -111,28 +112,22 @@ const Dashboard = () => {
         .limit(1)
         .maybeSingle();
 
-      console.log('Application fetch result:', { data, error, userId: user.id });
+      logger.log('Application fetch completed');
 
       if (error) {
-        console.error('Database error fetching application:', error);
+        logger.error('Database error fetching application:', error);
         // Check if it's an RLS error
         if (error.code === 'PGRST301') {
-          console.error('RLS policy error - user may not have permission to read applications');
-          // Try to fetch all applications to see if it's a general permission issue
-          const { data: allApps, error: allError } = await supabase
-            .from('tutor_applications')
-            .select('count')
-            .limit(1);
-          console.log('General applications access test:', { allApps, allError });
+          logger.error('RLS policy error - user may not have permission to read applications');
         }
         toast.error('Failed to load your application');
         return;
       }
 
       setApplication(data);
-      console.log('Application loaded successfully:', data);
+      logger.log('Application loaded successfully');
     } catch (error) {
-      console.error('Unexpected error fetching application:', error);
+      logger.error('Unexpected error fetching application:', error);
       toast.error('Failed to load your application');
     } finally {
       setIsLoading(false);
@@ -225,7 +220,7 @@ const Dashboard = () => {
                     </div>
                     <div className="flex gap-2">
                       <Link to={`/application/${application.id}`}>
-                        <Button variant="outline" size="sm" className="gap-2" onClick={() => console.log('View button clicked for application:', application.id)}>
+                        <Button variant="outline" size="sm" className="gap-2">
                           <Eye className="w-4 h-4" />
                           View
                         </Button>
