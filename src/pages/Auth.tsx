@@ -425,6 +425,14 @@ const Auth = () => {
                         </FormItem>
                       )}
                     />
+                    <div className="text-right">
+                      <Link
+                        to="/forgot-password"
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Forgot password?
+                      </Link>
+                    </div>
                     <Button 
                       type="submit" 
                       className="w-full btn-gradient-primary text-primary-foreground" 

@@ -463,8 +463,8 @@ const Admin = () => {
                     <div className="col-span-2">
                       <dt className="text-muted-foreground">Subjects to Tutor</dt>
                       <dd className="flex flex-wrap gap-1 mt-1">
-                        {selectedApplication.subjects_to_tutor?.map(subj => (
-                          <Badge key={subj} variant="secondary">{subj}</Badge>
+                        {selectedApplication.subjects_to_tutor?.split(',').map((subj, index) => (
+                          <Badge key={index} variant="secondary">{subj.trim()}</Badge>
                         ))}
                       </dd>
                     </div>
@@ -478,16 +478,16 @@ const Admin = () => {
                     <div>
                       <dt className="text-muted-foreground">Languages</dt>
                       <dd className="flex flex-wrap gap-1 mt-1">
-                        {selectedApplication.languages_spoken?.map(lang => (
-                          <Badge key={lang} variant="outline">{lang}</Badge>
+                        {selectedApplication.languages_spoken?.split(',').map((lang, index) => (
+                          <Badge key={index} variant="outline">{lang.trim()}</Badge>
                         ))}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-muted-foreground">Skills</dt>
                       <dd className="flex flex-wrap gap-1 mt-1">
-                        {selectedApplication.skills_competencies?.map(skill => (
-                          <Badge key={skill} variant="outline">{skill}</Badge>
+                        {selectedApplication.skills_competencies?.split(',').map((skill, index) => (
+                          <Badge key={index} variant="outline">{skill.trim()}</Badge>
                         ))}
                       </dd>
                     </div>
