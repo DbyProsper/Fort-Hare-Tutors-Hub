@@ -64,7 +64,7 @@ const Index = () => {
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight animate-fade-in" style={{ animationDelay: '0.1s' }}>
               <Typewriter
                 text="Shape the Future of Learning at UFH"
-                speed={80}
+                speed={100}
                 delay={500}
                 className="block"
                 cursorClassName="text-accent"
