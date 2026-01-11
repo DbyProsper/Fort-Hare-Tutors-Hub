@@ -99,7 +99,7 @@ export type Database = {
           full_name: string
           gender: Database["public"]["Enums"]["gender_type"] | null
           id: string
-          languages_spoken: string[] | null
+          languages_spoken: string | null
           motivation_letter: string
           nationality: string
           previous_tutoring_experience: string | null
@@ -107,11 +107,11 @@ export type Database = {
           residential_address: string
           reviewed_at: string | null
           reviewed_by: string | null
-          skills_competencies: string[] | null
+          skills_competencies: string | null
           status: Database["public"]["Enums"]["application_status"]
           student_number: string
-          subjects_completed: string[] | null
-          subjects_to_tutor: string[] | null
+          subjects_completed: string | null
+          subjects_to_tutor: string | null
           submitted_at: string | null
           updated_at: string
           user_id: string
@@ -131,7 +131,7 @@ export type Database = {
           full_name: string
           gender?: Database["public"]["Enums"]["gender_type"] | null
           id?: string
-          languages_spoken?: string[] | null
+          languages_spoken?: string | null
           motivation_letter: string
           nationality: string
           previous_tutoring_experience?: string | null
@@ -139,11 +139,11 @@ export type Database = {
           residential_address: string
           reviewed_at?: string | null
           reviewed_by?: string | null
-          skills_competencies?: string[] | null
+          skills_competencies?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           student_number: string
-          subjects_completed?: string[] | null
-          subjects_to_tutor?: string[] | null
+          subjects_completed?: string | null
+          subjects_to_tutor?: string | null
           submitted_at?: string | null
           updated_at?: string
           user_id: string
@@ -163,7 +163,7 @@ export type Database = {
           full_name?: string
           gender?: Database["public"]["Enums"]["gender_type"] | null
           id?: string
-          languages_spoken?: string[] | null
+          languages_spoken?: string | null
           motivation_letter?: string
           nationality?: string
           previous_tutoring_experience?: string | null
@@ -171,10 +171,10 @@ export type Database = {
           residential_address?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
-          skills_competencies?: string[] | null
+          skills_competencies?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           student_number?: string
-          subjects_completed?: string[] | null
+          subjects_completed?: string | null
           subjects_to_tutor?: string[] | null
           submitted_at?: string | null
           updated_at?: string

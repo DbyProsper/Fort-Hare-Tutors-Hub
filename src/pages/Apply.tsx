@@ -178,13 +178,13 @@ const Apply = () => {
           faculty: data.faculty,
           department: data.department,
           year_of_study: data.year_of_study,
-          subjects_completed: data.subjects_completed?.join(', ') || '',
-          subjects_to_tutor: data.subjects_to_tutor?.join(', ') || '',
+          subjects_completed: data.subjects_completed || '',
+          subjects_to_tutor: data.subjects_to_tutor || '',
           previous_tutoring_experience: data.previous_tutoring_experience || '',
           work_experience: data.work_experience || '',
-          skills_competencies: data.skills_competencies?.join(', ') || '',
-          languages_spoken: data.languages_spoken?.join(', ') || '',
-          availability: typeof data.availability === 'object' && data.availability !== null && !Array.isArray(data.availability) ? ((data.availability as Record<string, unknown>)?.description as string || JSON.stringify(data.availability)) : String(data.availability || '{}'),
+          skills_competencies: data.skills_competencies || '',
+          languages_spoken: data.languages_spoken || '',
+          availability: typeof data.availability === 'object' && data.availability !== null && !Array.isArray(data.availability) ? ((data.availability as Record<string, unknown>)?.description as string || String(data.availability)) : String(data.availability || ''),
           motivation_letter: data.motivation_letter,
         });
 
@@ -243,18 +243,20 @@ const Apply = () => {
         department: formData.department || 'Draft',
         year_of_study: formData.year_of_study || 1,
         subjects: (formData.subjects_completed || '') + (formData.subjects_to_tutor ? ', ' + formData.subjects_to_tutor : ''), // Combine as text
-        subjects_completed: formData.subjects_completed ? `{${formData.subjects_completed.split(',').map(s => s.trim()).filter(Boolean).join(',')}}` : '{}',
-        subjects_to_tutor: formData.subjects_to_tutor ? `{${formData.subjects_to_tutor.split(',').map(s => s.trim()).filter(Boolean).join(',')}}` : '{}',
+        subjects_completed: formData.subjects_completed || '',
+        subjects_to_tutor: formData.subjects_to_tutor || '',
         experience: (formData.previous_tutoring_experience || '') + (formData.work_experience ? ', ' + formData.work_experience : ''), // Combine as text
         previous_tutoring_experience: formData.previous_tutoring_experience || null,
         work_experience: formData.work_experience || null,
-        skills_competencies: formData.skills_competencies ? `{${formData.skills_competencies.split(',').map(s => s.trim()).filter(Boolean).join(',')}}` : '{}',
-        languages_spoken: formData.languages_spoken ? `{${formData.languages_spoken.split(',').map(s => s.trim()).filter(Boolean).join(',')}}` : '{}',
-        availability: formData.availability ? (() => { try { return JSON.parse(formData.availability); } catch { return {}; } })() : {},
+        skills_competencies: formData.skills_competencies || '',
+        languages_spoken: formData.languages_spoken || '',
+        availability: formData.availability || '',
         motivation: formData.motivation_letter || 'Draft', // Map motivation_letter to motivation
         motivation_letter: formData.motivation_letter || 'Draft',
         status: 'draft' as const,
       };
+
+      console.log('Application data to insert:', applicationData);
 
       logger.log('Application data prepared');
 
@@ -421,14 +423,14 @@ const Apply = () => {
         department: data.department,
         year_of_study: data.year_of_study,
         subjects: (data.subjects_completed || '') + (data.subjects_to_tutor ? ', ' + data.subjects_to_tutor : ''), // Combine as text
-        subjects_completed: data.subjects_completed ? `{${data.subjects_completed.split(',').map(s => s.trim()).join(',')}}` : '{}',
-        subjects_to_tutor: data.subjects_to_tutor ? `{${data.subjects_to_tutor.split(',').map(s => s.trim()).join(',')}}` : '{}',
+        subjects_completed: data.subjects_completed || '',
+        subjects_to_tutor: data.subjects_to_tutor || '',
         experience: (data.previous_tutoring_experience || '') + (data.work_experience ? ', ' + data.work_experience : ''), // Combine as text
         previous_tutoring_experience: data.previous_tutoring_experience,
         work_experience: data.work_experience,
-        skills_competencies: data.skills_competencies ? `{${data.skills_competencies.split(',').map(s => s.trim()).join(',')}}` : '{}',
-        languages_spoken: data.languages_spoken ? `{${data.languages_spoken.split(',').map(s => s.trim()).join(',')}}` : '{}',
-        availability: { description: data.availability },
+        skills_competencies: data.skills_competencies || '',
+        languages_spoken: data.languages_spoken || '',
+        availability: data.availability,
         motivation: data.motivation_letter, // Map motivation_letter to motivation
         motivation_letter: data.motivation_letter,
         status: 'pending' as const,
@@ -462,7 +464,7 @@ const Apply = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/');
+    navigate('/auth');
   };
 
   const nextStep = () => {

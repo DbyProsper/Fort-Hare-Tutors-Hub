@@ -210,7 +210,7 @@ const Admin = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/');
+    navigate('/auth');
   };
 
   const filteredApplications = applications.filter(app => {

@@ -92,40 +92,6 @@ const ApplicationView = () => {
 
   logger.log('ApplicationView rendered');
 
-  useEffect(() => {
-    logger.log('useEffect triggered');
-    loadApplication();
-
-    // Fallback timeout in case loading gets stuck
-    const timeout = setTimeout(() => {
-      logger.log('Loading timeout reached, forcing isLoading to false');
-      setIsLoading(false);
-      toast.error('Loading timed out. Please check your connection and try again.');
-    }, 5000); // 5 seconds
-
-    return () => clearTimeout(timeout);
-  }, []);
-
-  // If no user, show a message
-  if (!user) {
-    return (
-      <div style={{ backgroundColor: 'white', color: 'black', padding: '20px' }}>
-        <h1>Not authenticated</h1>
-        <p>Please log in first</p>
-      </div>
-    );
-  }
-
-  // If no id, show a message
-  if (!id) {
-    return (
-      <div style={{ backgroundColor: 'white', color: 'black', padding: '20px' }}>
-        <h1>No application ID</h1>
-        <p>Invalid application ID</p>
-      </div>
-    );
-  }
-
   const loadApplication = async () => {
     logger.log('Starting loadApplication');
     try {
@@ -179,6 +145,45 @@ const ApplicationView = () => {
     }
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
+  useEffect(() => {
+    logger.log('useEffect triggered');
+    loadApplication();
+
+    // Fallback timeout in case loading gets stuck
+    const timeout = setTimeout(() => {
+      logger.log('Loading timeout reached, forcing isLoading to false');
+      setIsLoading(false);
+      toast.error('Loading timed out. Please check your connection and try again.');
+    }, 5000); // 5 seconds
+
+    return () => clearTimeout(timeout);
+  }, []);
+
+  // If no user, show a message
+  if (!user) {
+    return (
+      <div style={{ backgroundColor: 'white', color: 'black', padding: '20px' }}>
+        <h1>Not authenticated</h1>
+        <p>Please log in first</p>
+      </div>
+    );
+  }
+
+  // If no id, show a message
+  if (!id) {
+    return (
+      <div style={{ backgroundColor: 'white', color: 'black', padding: '20px' }}>
+        <h1>No application ID</h1>
+        <p>Invalid application ID</p>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -220,7 +225,7 @@ const ApplicationView = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Welcome, {user?.user_metadata?.full_name || user?.email}</span>
               <button 
-                onClick={signOut}
+                onClick={handleSignOut}
                 style={{ backgroundColor: 'transparent', border: '1px solid #d1d5db', padding: '0.5rem 1rem', borderRadius: '0.375rem', color: '#6b7280', cursor: 'pointer' }}
               >
                 Sign Out

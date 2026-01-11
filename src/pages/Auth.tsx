@@ -56,19 +56,17 @@ const Auth = () => {
   const [pendingEmail, setPendingEmail] = useState<string>('');
 
   useEffect(() => {
+    console.log('Auth useEffect triggered:', { user: user?.id, authLoading, isAdmin });
     if (user && !authLoading && isAdmin !== null) {
-      if (loginType === 'admin') {
-        if (isAdmin === true) {
-          navigate('/admin');
-        } else {
-          setError('Access denied. Admin privileges required.');
-          navigate('/dashboard');
-        }
+      if (isAdmin === true) {
+        console.log('Redirecting to admin dashboard');
+        navigate('/admin');
       } else {
+        console.log('Redirecting to student dashboard');
         navigate('/dashboard');
       }
     }
-  }, [user, isAdmin, authLoading, navigate, loginType]);
+  }, [user, isAdmin, authLoading, navigate]);
 
   const signInForm = useForm<SignInFormData>({
     resolver: zodResolver(signInSchema),

@@ -136,7 +136,7 @@ const Dashboard = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/');
+    navigate('/auth');
     toast.success('Signed out successfully');
   };
 

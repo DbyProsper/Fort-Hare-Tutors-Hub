@@ -78,6 +78,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAdminRole = async (userId: string) => {
     try {
+      console.log('Checking admin role for userId:', userId);
+
+      // Try using the has_role function first
+      const { data: hasRoleData, error: hasRoleError } = await supabase.rpc('has_role', {
+        _user_id: userId,
+        _role: 'admin'
+      });
+
+      console.log('has_role RPC result:', { hasRoleData, hasRoleError });
+
+      if (!hasRoleError && hasRoleData === true) {
+        console.log('Setting isAdmin to true (via RPC)');
+        setIsAdmin(true);
+        return;
+      }
+
+      // Fallback to direct query
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
@@ -85,12 +102,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('role', 'admin')
         .maybeSingle();
 
+      console.log('Direct query result:', { data, error });
+
       if (!error && data) {
+        console.log('Setting isAdmin to true (via direct query)');
         setIsAdmin(true);
       } else {
+        console.log('Setting isAdmin to false');
         setIsAdmin(false);
       }
-    } catch {
+    } catch (err) {
+      console.error('Error checking admin role:', err);
       setIsAdmin(false);
     }
   };

@@ -302,14 +302,14 @@ const EditApplication = () => {
         department: formData.department || '',
         year_of_study: formData.year_of_study || 1,
         subjects: (formData.subjects_completed || '') + (formData.subjects_to_tutor ? ', ' + formData.subjects_to_tutor : ''), // Combine as text
-        subjects_completed: formData.subjects_completed ? `{${(formData.subjects_completed || '').split(',').map(s => s.trim()).filter(Boolean).join(',')}}` : '{}',
-        subjects_to_tutor: formData.subjects_to_tutor ? `{${(formData.subjects_to_tutor || '').split(',').map(s => s.trim()).filter(Boolean).join(',')}}` : '{}',
+        subjects_completed: formData.subjects_completed || '',
+        subjects_to_tutor: formData.subjects_to_tutor || '',
         experience: (formData.previous_tutoring_experience || '') + (formData.work_experience ? ', ' + formData.work_experience : ''), // Combine experience
         previous_tutoring_experience: formData.previous_tutoring_experience || null,
         work_experience: formData.work_experience || null,
-        skills_competencies: formData.skills_competencies ? `{${(formData.skills_competencies || '').split(',').map(s => s.trim()).filter(Boolean).join(',')}}` : '{}',
-        languages_spoken: formData.languages_spoken ? `{${(formData.languages_spoken || '').split(',').map(s => s.trim()).filter(Boolean).join(',')}}` : '{}',
-        availability: { description: formData.availability || '' },
+        skills_competencies: formData.skills_competencies || '',
+        languages_spoken: formData.languages_spoken || '',
+        availability: formData.availability || '',
         motivation: formData.motivation_letter || '', // Map motivation_letter to motivation
         motivation_letter: formData.motivation_letter || '',
         status: 'draft' as const,
@@ -464,14 +464,14 @@ const EditApplication = () => {
           department: data.department,
           year_of_study: data.year_of_study,
           subjects: (data.subjects_completed || '') + (data.subjects_to_tutor ? ', ' + data.subjects_to_tutor : ''), // Combine as text
-          subjects_completed: data.subjects_completed ? `{${data.subjects_completed.split(',').map(s => s.trim()).filter(Boolean).join(',')}}` : '{}',
-          subjects_to_tutor: data.subjects_to_tutor ? `{${data.subjects_to_tutor.split(',').map(s => s.trim()).filter(Boolean).join(',')}}` : '{}',
+          subjects_completed: data.subjects_completed || '',
+          subjects_to_tutor: data.subjects_to_tutor || '',
           experience: (data.previous_tutoring_experience || '') + (data.work_experience ? ', ' + data.work_experience : ''), // Combine as text
           previous_tutoring_experience: data.previous_tutoring_experience || null,
           work_experience: data.work_experience || null,
-          skills_competencies: data.skills_competencies ? `{${data.skills_competencies.split(',').map(s => s.trim()).filter(Boolean).join(',')}}` : '{}',
-          languages_spoken: data.languages_spoken ? `{${data.languages_spoken.split(',').map(s => s.trim()).filter(Boolean).join(',')}}` : '{}',
-          availability: { description: data.availability },
+          skills_competencies: data.skills_competencies || '',
+          languages_spoken: data.languages_spoken || '',
+          availability: data.availability,
           motivation: data.motivation_letter, // Map motivation_letter to motivation
           motivation_letter: data.motivation_letter,
           status: 'pending',
