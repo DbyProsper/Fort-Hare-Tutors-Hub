@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -89,6 +89,7 @@ const ApplicationView = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [application, setApplication] = useState<any>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   logger.log('ApplicationView rendered');
 
@@ -134,7 +135,11 @@ const ApplicationView = () => {
       }
 
       logger.log('Application loaded successfully');
-
+      // Clear the timeout since loading completed successfully
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
     } catch (error) {
       logger.error('Error in loadApplication:', error);
       toast.error('Failed to load application');
@@ -155,13 +160,19 @@ const ApplicationView = () => {
     loadApplication();
 
     // Fallback timeout in case loading gets stuck
-    const timeout = setTimeout(() => {
-      logger.log('Loading timeout reached, forcing isLoading to false');
+    loadingTimeoutRef.current = setTimeout(() => {
+      logger.log('Loading timeout reached, showing error');
       setIsLoading(false);
       toast.error('Loading timed out. Please check your connection and try again.');
+      loadingTimeoutRef.current = null;
     }, 5000); // 5 seconds
 
-    return () => clearTimeout(timeout);
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+    };
   }, []);
 
   // If no user, show a message
