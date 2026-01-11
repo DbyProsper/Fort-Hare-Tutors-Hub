@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { GraduationCap, Users, FileCheck, ChevronRight, CheckCircle2, Clock, Shield } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import Typewriter from '@/components/Typewriter';
 
 
 const Index = () => {
@@ -61,8 +62,13 @@ const Index = () => {
               Applications Open for 2026
             </div>
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              Shape the Future of
-              <span className="block text-accent">Learning at UFH</span>
+              <Typewriter
+                text="Shape the Future of Learning at UFH"
+                speed={80}
+                delay={500}
+                className="block"
+                cursorClassName="text-accent"
+              />
             </h1>
             <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.2s' }}>
               Join our tutoring program and help fellow students succeed. Share your knowledge, 
