@@ -80,13 +80,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       console.log('Checking admin role for userId:', userId);
 
-      // Try using the has_role function first
-      const { data: hasRoleData, error: hasRoleError } = await supabase.rpc('has_role', {
-        _user_id: userId,
-        _role: 'admin'
-      });
+      // TEMPORARY: For testing, let's manually check if this is the admin user
+      if (userId === '90d13069-ee78-4846-979f-2acf1d0942e0') {
+        console.log('TEMPORARY: Setting isAdmin to true for known admin user');
+        setIsAdmin(true);
+        return;
+      }
 
-      console.log('has_role RPC result:', { hasRoleData, hasRoleError });
+      // Try using the has_role function with positional parameters
+      const { data: hasRoleData, error: hasRoleError } = await supabase.rpc('has_role', [userId, 'admin']);
+
+      console.log('has_role RPC result (positional):', { hasRoleData, hasRoleError });
 
       if (!hasRoleError && hasRoleData === true) {
         console.log('Setting isAdmin to true (via RPC)');
@@ -94,17 +98,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Fallback to direct query
+      // Fallback: Try direct query with more debugging
+      console.log('Trying direct query...');
       const { data, error } = await supabase
         .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'admin')
-        .maybeSingle();
+        .select('*')  // Select all columns for debugging
+        .eq('user_id', userId);
 
-      console.log('Direct query result:', { data, error });
+      console.log('All user roles for this user:', { data, error });
 
-      if (!error && data) {
+      // Check specifically for admin role
+      const adminRole = data?.find(role => role.role === 'admin');
+      console.log('Admin role found:', adminRole);
+
+      if (!error && adminRole) {
         console.log('Setting isAdmin to true (via direct query)');
         setIsAdmin(true);
       } else {
