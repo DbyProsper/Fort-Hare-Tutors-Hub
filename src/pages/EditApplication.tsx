@@ -996,7 +996,20 @@ const EditApplication = () => {
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => {/* Handle view/download */}}
+                                  onClick={async () => {
+                                    try {
+                                      const { data, error } = await supabase.storage
+                                        .from('application-documents')
+                                        .createSignedUrl(uploaded.file_path, 60);
+                                      if (error || !data?.signedUrl) {
+                                        toast.error('Could not generate document link');
+                                        return;
+                                      }
+                                      window.open(data.signedUrl, '_blank');
+                                    } catch (err) {
+                                      toast.error('Failed to open document');
+                                    }
+                                  }}
                                 >
                                   <FileText className="w-4 h-4 mr-2" />
                                   View
