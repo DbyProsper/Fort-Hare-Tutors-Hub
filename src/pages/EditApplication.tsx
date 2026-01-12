@@ -1170,6 +1170,7 @@ const EditApplication = () => {
                     )}
                   </div>
                 </div>
+              </div>
             </form>
           </Form>
         </div>
