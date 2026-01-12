@@ -1069,7 +1069,7 @@ const EditApplication = () => {
                       {/* Personal Info Summary */}
                       <div>
                         <h3 className="font-semibold mb-2">Personal Information</h3>
-                        <div className="grid md:grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                           <div><strong>Name:</strong> {form.watch('full_name')}</div>
                           <div><strong>Student Number:</strong> {form.watch('student_number')}</div>
                           <div><strong>Date of Birth:</strong> {form.watch('date_of_birth')}</div>
@@ -1082,7 +1082,7 @@ const EditApplication = () => {
                       {/* Academic Info Summary */}
                       <div>
                         <h3 className="font-semibold mb-2">Academic Information</h3>
-                        <div className="grid md:grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                           <div><strong>Degree:</strong> {form.watch('degree_program')}</div>
                           <div><strong>Faculty:</strong> {form.watch('faculty')}</div>
                           <div><strong>Department:</strong> {form.watch('department')}</div>
@@ -1116,58 +1116,60 @@ const EditApplication = () => {
 
               {/* Navigation */}
               <div className="flex justify-between items-center">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={prevStep}
-                  disabled={currentStep === 1}
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Previous
-                </Button>
-
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 w-full mt-6">
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={handleSaveDraft}
-                    disabled={isSaving}
-                    className="gap-2"
+                    onClick={prevStep}
+                    disabled={currentStep === 1}
+                    className="w-full sm:w-auto"
                   >
-                    {isSaving ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Save className="w-4 h-4" />
-                    )}
-                    Save Draft
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Previous
                   </Button>
 
-                  {currentStep < 5 ? (
-                    <Button type="button" onClick={(e) => { e.preventDefault(); nextStep(); }}>
-                      Next
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  ) : (
+                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                     <Button
-                      type="submit"
-                      className="btn-gradient-accent text-accent-foreground"
-                      disabled={isSubmitting}
+                      type="button"
+                      variant="outline"
+                      onClick={handleSaveDraft}
+                      disabled={isSaving}
+                      className="gap-2 w-full sm:w-auto"
                     >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Updating...
-                        </>
+                      {isSaving ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        <>
-                          <Send className="w-4 h-4 mr-2" />
-                          Submit Application
-                        </>
+                        <Save className="w-4 h-4" />
                       )}
+                      Save Draft
                     </Button>
-                  )}
+
+                    {currentStep < 5 ? (
+                      <Button type="button" onClick={(e) => { e.preventDefault(); nextStep(); }} className="w-full sm:w-auto">
+                        Next
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    ) : (
+                      <Button
+                        type="submit"
+                        className="btn-gradient-accent text-accent-foreground w-full sm:w-auto"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Updating...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4 mr-2" />
+                            Submit Application
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
             </form>
           </Form>
         </div>
