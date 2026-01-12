@@ -157,6 +157,7 @@ const ApplicationView = () => {
 
   useEffect(() => {
     logger.log('useEffect triggered');
+    if (!user || !id) return;
     loadApplication();
 
     // Fallback timeout in case loading gets stuck
@@ -173,7 +174,7 @@ const ApplicationView = () => {
         loadingTimeoutRef.current = null;
       }
     };
-  }, []);
+  }, [user, id]);
 
   // If no user, show a message
   if (!user) {

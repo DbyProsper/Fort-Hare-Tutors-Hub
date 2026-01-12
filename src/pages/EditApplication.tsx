@@ -146,7 +146,8 @@ const EditApplication = () => {
     }
 
     if (!id) {
-      navigate('/dashboard');
+      toast.error('No application ID found. Please use a valid link.');
+      setIsLoading(false);
       return;
     }
 
@@ -324,10 +325,16 @@ const EditApplication = () => {
         .eq('id', application.id)
         .eq('user_id', user.id);
 
-      if (error) {
-        logger.error('Update error:', error);
-        console.error('Save draft error details:', error);
-        throw error;
+      // Also update student_number in profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ student_number: formData.student_number })
+        .eq('id', user.id);
+
+      if (error || profileError) {
+        logger.error('Update error:', error || profileError);
+        console.error('Save draft error details:', error || profileError);
+        throw error || profileError;
       }
 
       logger.log('Draft update successful');
@@ -480,10 +487,16 @@ const EditApplication = () => {
         })
         .eq('id', application.id);
 
-      if (error) {
-        logger.error('Submit error:', error);
-        console.error('Submit application error details:', error);
-        throw error;
+      // Also update student_number in profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ student_number: data.student_number })
+        .eq('id', user.id);
+
+      if (error || profileError) {
+        logger.error('Submit error:', error || profileError);
+        console.error('Submit application error details:', error || profileError);
+        throw error || profileError;
       }
 
       toast.success('Application submitted successfully! Your application is now under review.');
