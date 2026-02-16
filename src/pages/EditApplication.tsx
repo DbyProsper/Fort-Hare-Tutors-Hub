@@ -11,6 +11,8 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { useAutoSave } from '@/hooks/useAutoSave';
+import { SaveStatusIndicator } from '@/components/SaveStatusIndicator';
 import { 
   GraduationCap, 
   ArrowLeft, 
@@ -139,6 +141,15 @@ const EditApplication = () => {
       motivation_letter: '',
     },
   });
+
+  const formValues = form.watch();
+  const { saveStatus, isSavingAutosave, isOnline } = useAutoSave(
+    user?.id || '',
+    id || '',
+    formValues,
+    900,
+    !isLoading && application && (application.status === 'draft' || application.status === 'pending')
+  );
 
   useEffect(() => {
     if (!user) {
@@ -568,7 +579,10 @@ const EditApplication = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-xl font-semibold">Edit Application</h1>
-            <Badge variant="outline">Step {currentStep} of 5</Badge>
+            <div className="flex items-center gap-4">
+              <SaveStatusIndicator status={saveStatus} message={saveStatus === 'saved' ? 'All changes saved' : saveStatus === 'saving' ? 'Saving...' : saveStatus === 'error' ? 'Failed to save' : saveStatus === 'offline' ? 'Offline – changes not saved' : ''} />
+              <Badge variant="outline">Step {currentStep} of 5</Badge>
+            </div>
           </div>
           <Progress value={progress} className="w-full" />
           <div className="flex justify-between mt-2">

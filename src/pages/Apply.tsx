@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLoading } from '@/contexts/LoadingContext';
+import { useAutoSave } from '@/hooks/useAutoSave';
+import { SaveStatusIndicator } from '@/components/SaveStatusIndicator';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
@@ -139,6 +141,16 @@ const Apply = () => {
   });
 
   const selectedFaculty = form.watch('faculty');
+  const formValues = form.watch();
+
+  // Autosave hook - automatically saves form data while typing
+  const { saveStatus } = useAutoSave({
+    userId: user?.id,
+    applicationId: applicationId || undefined,
+    formData: formValues,
+    debounceMs: 900,
+    enabled: !!user && !!applicationId && form.formState.isDirty,
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -523,7 +535,10 @@ const Apply = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">Step {currentStep} of 5</span>
-            <span className="text-sm text-muted-foreground">{Math.round(progress)}% complete</span>
+            <div className="flex items-center gap-4">
+              <SaveStatusIndicator status={saveStatus.status} message={saveStatus.message} />
+              <span className="text-sm text-muted-foreground">{Math.round(progress)}% complete</span>
+            </div>
           </div>
           <Progress value={progress} className="h-2" />
           <div className="flex justify-between mt-4">
