@@ -47,7 +47,7 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, isAdmin, signIn, signUp, isLoading: authLoading } = useAuth();
-  const { setLoading, setMessage } = useLoading();
+  const { loading, setLoading, setMessage } = useLoading();
   const [isSignUp, setIsSignUp] = useState(searchParams.get('mode') === 'signup');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -353,9 +353,9 @@ const Auth = () => {
                     <Button 
                       type="submit" 
                       className="w-full btn-gradient-primary text-primary-foreground" 
-                      disabled={isSubmitting}
+                      disabled={loading}
                     >
-                      {isSubmitting ? (
+                      {loading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Creating Account...
@@ -451,9 +451,9 @@ const Auth = () => {
                     <Button 
                       type="submit" 
                       className="w-full btn-gradient-primary text-primary-foreground" 
-                      disabled={isSubmitting}
+                      disabled={loading}
                     >
-                      {isSubmitting ? (
+                      {loading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Signing In...
