@@ -28,6 +28,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
@@ -107,8 +108,8 @@ const EditApplication = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { setLoading, setMessage } = useLoading();
   const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -155,6 +156,8 @@ const EditApplication = () => {
   }, [user, id, navigate]);
 
   const loadApplication = async () => {
+    setMessage('Loading your application...');
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('tutor_applications')
@@ -217,6 +220,8 @@ const EditApplication = () => {
       navigate('/dashboard');
     } finally {
       setIsLoading(false);
+      setLoading(false);
+      setMessage('Loading...');
     }
   };
 
@@ -284,6 +289,8 @@ const EditApplication = () => {
     }
 
     setIsSaving(true);
+    setMessage('Saving your draft...');
+    setLoading(true);
     try {
       const formData = form.getValues();
       logger.log('Saving draft...');
@@ -344,6 +351,8 @@ const EditApplication = () => {
       toast.error(error.message || 'Failed to save draft');
     } finally {
       setIsSaving(false);
+      setLoading(false);
+      setMessage('Loading...');
     }
   };
 
@@ -452,7 +461,8 @@ const EditApplication = () => {
       return;
     }
 
-    setIsSubmitting(true);
+    setMessage('Submitting your application...');
+    setLoading(true);
     try {
       const { error } = await supabase
         .from('tutor_applications')
@@ -505,7 +515,8 @@ const EditApplication = () => {
       logger.error('Error submitting application:', error);
       toast.error('Failed to submit application');
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
+      setMessage('Loading...');
     }
   };
 

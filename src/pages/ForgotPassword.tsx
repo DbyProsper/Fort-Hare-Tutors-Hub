@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { GraduationCap, ArrowLeft, Loader2, Mail } from 'lucide-react';
+import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -18,7 +19,7 @@ const forgotPasswordSchema = z.object({
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 
 const ForgotPassword = () => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { setLoading, setMessage } = useLoading();
   const [isSuccess, setIsSuccess] = useState(false);
 
   const form = useForm<ForgotPasswordFormData>({
@@ -27,7 +28,8 @@ const ForgotPassword = () => {
   });
 
   const handleForgotPassword = async (data: ForgotPasswordFormData) => {
-    setIsSubmitting(true);
+    setMessage('Sending reset email...');
+    setLoading(true);
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
@@ -36,14 +38,18 @@ const ForgotPassword = () => {
 
       if (error) {
         toast.error(error.message);
+        setLoading(false);
+        setMessage('Loading...');
       } else {
         setIsSuccess(true);
+        setLoading(false);
+        setMessage('Loading...');
         toast.success('Password reset link sent! Check your email.');
       }
     } catch (error: any) {
       toast.error(error.message || 'An unexpected error occurred');
-    } finally {
-      setIsSubmitting(false);
+      setLoading(false);
+      setMessage('Loading...');
     }
   };
 

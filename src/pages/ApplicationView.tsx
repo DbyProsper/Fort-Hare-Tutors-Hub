@@ -19,6 +19,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
@@ -86,6 +87,7 @@ const ApplicationView = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { setLoading, setMessage } = useLoading();
   const [isLoading, setIsLoading] = useState(true);
   const [application, setApplication] = useState<any>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
@@ -95,6 +97,8 @@ const ApplicationView = () => {
 
   const loadApplication = async () => {
     logger.log('Starting loadApplication');
+    setMessage('Loading your application...');
+    setLoading(true);
     try {
       logger.log('Making Supabase query...');
       const { data, error } = await supabase
@@ -147,12 +151,21 @@ const ApplicationView = () => {
     } finally {
       logger.log('Setting isLoading to false');
       setIsLoading(false);
+      setLoading(false);
+      setMessage('Loading...');
     }
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/auth');
+    setMessage('Signing you out...');
+    setLoading(true);
+    try {
+      await signOut();
+      navigate('/auth');
+    } finally {
+      setLoading(false);
+      setMessage('Loading...');
+    }
   };
 
   useEffect(() => {

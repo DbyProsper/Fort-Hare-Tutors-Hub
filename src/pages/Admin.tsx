@@ -24,6 +24,7 @@ import {
   Download
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
@@ -72,6 +73,7 @@ const statusConfig = {
 const Admin = () => {
   const navigate = useNavigate();
   const { user, isAdmin, isLoading: authLoading, signOut } = useAuth();
+  const { setLoading, setMessage } = useLoading();
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -102,6 +104,8 @@ const Admin = () => {
   }, [isAdmin]);
 
   const fetchApplications = async () => {
+    setMessage('Loading applications...');
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('tutor_applications')
@@ -116,6 +120,8 @@ const Admin = () => {
       toast.error('Failed to load applications');
     } finally {
       setIsLoading(false);
+      setLoading(false);
+      setMessage('Loading...');
     }
   };
 
@@ -148,6 +154,8 @@ const Admin = () => {
     }
 
     setIsUpdating(true);
+    setMessage('Updating application status...');
+    setLoading(true);
 
     try {
       const updateData: any = {
@@ -183,6 +191,8 @@ const Admin = () => {
       toast.error(error.message || 'Failed to update application');
     } finally {
       setIsUpdating(false);
+      setLoading(false);
+      setMessage('Loading...');
     }
   };
 

@@ -19,6 +19,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
@@ -70,6 +71,7 @@ const statusConfig = {
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, isLoading: authLoading, signOut } = useAuth();
+  const { setLoading, setMessage } = useLoading();
   const [application, setApplication] = useState<Application | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -86,11 +88,15 @@ const Dashboard = () => {
   }, [user]);
 
   const fetchApplication = async () => {
+    setMessage('Loading your application...');
+    setLoading(true);
     try {
       logger.log('Fetching application for user');
       if (!user?.id) {
         logger.warn('No user ID available for fetching application');
         setIsLoading(false);
+        setLoading(false);
+        setMessage('Loading...');
         return;
       }
 
@@ -131,13 +137,23 @@ const Dashboard = () => {
       toast.error('Failed to load your application');
     } finally {
       setIsLoading(false);
+      setLoading(false);
+      setMessage('Loading...');
     }
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/auth');
-    toast.success('Signed out successfully');
+    setMessage('Signing you out...');
+    setLoading(true);
+    try {
+      await signOut();
+      navigate('/auth');
+      toast.success('Signed out successfully');
+    } catch (error) {
+      setLoading(false);
+      setMessage('Loading...');
+      toast.error('Failed to sign out');
+    }
   };
 
   if (authLoading || isLoading) {

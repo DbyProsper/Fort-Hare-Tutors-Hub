@@ -28,6 +28,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
@@ -106,8 +107,8 @@ const STEPS = [
 const Apply = () => {
   const navigate = useNavigate();
   const { user, isLoading: authLoading, signOut } = useAuth();
+  const { setLoading, setMessage } = useLoading();
   const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
@@ -222,6 +223,8 @@ const Apply = () => {
       return;
     }
 
+    setMessage('Saving your draft...');
+    setLoading(true);
     setIsSaving(true);
     try {
       const formData = form.getValues();
@@ -294,6 +297,8 @@ const Apply = () => {
       toast.error(error.message || 'Failed to save draft');
     } finally {
       setIsSaving(false);
+      setLoading(false);
+      setMessage('Loading...');
     }
   };
 
@@ -404,7 +409,8 @@ const Apply = () => {
       return;
     }
 
-    setIsSubmitting(true);
+    setMessage('Submitting your application...');
+    setLoading(true);
 
     try {
       const applicationData = {
@@ -458,7 +464,8 @@ const Apply = () => {
       logger.error('Error submitting application:', error);
       toast.error(error.message || 'Failed to submit application');
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
+      setMessage('Loading...');
     }
   };
 

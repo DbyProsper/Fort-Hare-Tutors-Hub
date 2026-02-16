@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { GraduationCap, Eye, EyeOff, ArrowLeft, Loader2, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -46,10 +47,10 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, isAdmin, signIn, signUp, isLoading: authLoading } = useAuth();
+  const { setLoading, setMessage } = useLoading();
   const [isSignUp, setIsSignUp] = useState(searchParams.get('mode') === 'signup');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginType, setLoginType] = useState<'student' | 'admin'>('student');
   const [error, setError] = useState<string | null>(null);
   const [showCheckEmail, setShowCheckEmail] = useState(false);
@@ -79,21 +80,30 @@ const Auth = () => {
   });
 
   const handleSignIn = async (data: SignInFormData) => {
-    setIsSubmitting(true);
+    setMessage('Signing you in...');
+    setLoading(true);
     setError(null);
 
-    const { error } = await signIn(data.email, data.password);
-    
-    if (error) {
-      setError(error.message);
-      setIsSubmitting(false);
-    } else {
-      toast.success('Welcome back!');
+    try {
+      const { error } = await signIn(data.email, data.password);
+      
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+        setMessage('Loading...');
+      } else {
+        toast.success('Welcome back!');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+      setLoading(false);
+      setMessage('Loading...');
     }
   };
 
   const handleSignUp = async (data: SignUpFormData) => {
-    setIsSubmitting(true);
+    setMessage('Creating your account...');
+    setLoading(true);
     setError(null);
 
     try {
@@ -103,18 +113,24 @@ const Auth = () => {
         if (result.error.message === 'ACCOUNT_EXISTS') {
           // User already exists, redirect to sign in
           setError('An account with this email already exists. Please sign in instead.');
+          setLoading(false);
+          setMessage('Loading...');
           setTimeout(() => {
             setIsSignUp(false);
             setError(null);
           }, 3000);
         } else {
           setError(result.error.message);
+          setLoading(false);
+          setMessage('Loading...');
         }
         console.error('Signup error:', result.error.message);
       } else if (result.needsConfirmation) {
         // Email confirmation required
         setPendingEmail(data.email);
         setShowCheckEmail(true);
+        setLoading(false);
+        setMessage('Loading...');
         toast.success('Account created! Please check your email to confirm your account.');
       } else if (result.user && result.session) {
         // User created and automatically signed in
@@ -124,9 +140,8 @@ const Auth = () => {
     } catch (error) {
       console.error('Unexpected error during signup:', error);
       setError('An unexpected error occurred. Please try again.');
-    } finally {
-      // Always stop loading, regardless of success or failure
-      setIsSubmitting(false);
+      setLoading(false);
+      setMessage('Loading...');
     }
   };
 

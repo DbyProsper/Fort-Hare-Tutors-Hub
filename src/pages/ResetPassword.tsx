@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { GraduationCap, Eye, EyeOff, Loader2, Lock } from 'lucide-react';
+import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -28,7 +29,7 @@ type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
 const ResetPassword = () => {
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { setLoading, setMessage } = useLoading();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isValidSession, setIsValidSession] = useState(false);
@@ -92,7 +93,8 @@ const ResetPassword = () => {
   }, [navigate]);
 
   const handleResetPassword = async (data: ResetPasswordFormData) => {
-    setIsSubmitting(true);
+    setMessage('Updating your password...');
+    setLoading(true);
 
     try {
       const { error } = await supabase.auth.updateUser({
@@ -101,14 +103,16 @@ const ResetPassword = () => {
 
       if (error) {
         toast.error(error.message);
+        setLoading(false);
+        setMessage('Loading...');
       } else {
         toast.success('Password updated successfully!');
         navigate('/dashboard');
       }
     } catch (error: any) {
       toast.error(error.message || 'An unexpected error occurred');
-    } finally {
-      setIsSubmitting(false);
+      setLoading(false);
+      setMessage('Loading...');
     }
   };
 
