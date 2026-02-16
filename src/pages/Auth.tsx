@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { GraduationCap, Eye, EyeOff, ArrowLeft, Loader2, Mail, Lock, User } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, Loader2, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -221,9 +221,7 @@ const Auth = () => {
             <>
               {/* Logo */}
               <div className="text-center mb-8">
-                <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg">
-                  <GraduationCap className="w-9 h-9 text-primary-foreground" />
-                </div>
+                <img src="/ufhlogo.png" alt="UFH Logo" className="w-20 h-20 mx-auto mb-4 object-contain" />
                 <h1 className="text-2xl font-bold text-foreground">UFH Tutor Portal</h1>
                 <p className="text-muted-foreground">University of Fort Hare</p>
               </div>
