@@ -61,7 +61,7 @@ const AppLoader = () => {
         {/* Logo */}
         <div className="loader-logo">
           <img
-            src="/placeholder.svg"
+            src="/ufhlogo.png"
             alt="Loading"
             className="w-24 h-24 object-contain opacity-80"
           />
