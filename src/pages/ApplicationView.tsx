@@ -161,7 +161,12 @@ const ApplicationView = () => {
     setLoading(true);
     try {
       await signOut();
+      toast.success('Signed out successfully');
+      // Add a small delay to ensure auth state is cleared before navigation
+      await new Promise(resolve => setTimeout(resolve, 500));
       navigate('/auth');
+    } catch (error) {
+      toast.error('Failed to sign out');
     } finally {
       setLoading(false);
       setMessage('Loading...');
