@@ -147,12 +147,13 @@ const Dashboard = () => {
     setLoading(true);
     try {
       await signOut();
-      navigate('/auth');
       toast.success('Signed out successfully');
+      navigate('/auth');
     } catch (error) {
+      toast.error('Failed to sign out');
+    } finally {
       setLoading(false);
       setMessage('Loading...');
-      toast.error('Failed to sign out');
     }
   };
 
