@@ -221,7 +221,7 @@ const Auth = () => {
             <>
               {/* Logo */}
               <div className="text-center mb-8">
-                <img src="/ufhlogo.png" alt="UFH Logo" className="w-20 h-20 mx-auto mb-4 object-contain" />
+                <img src="/ufhlogo.png" alt="UFH Logo" className="w-48 h-48 mx-auto mb-4 object-contain" />
                 <h1 className="text-2xl font-bold text-foreground">UFH Tutor Portal</h1>
                 <p className="text-muted-foreground">University of Fort Hare</p>
               </div>
