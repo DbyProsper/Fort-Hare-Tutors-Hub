@@ -196,6 +196,25 @@ const Apply = () => {
 
           logger.log('Expired draft deleted:', data.id);
           toast.info('Your saved draft has expired. Please start a new application.');
+          
+          // Check localStorage for recent unsaved data
+          const localStorageKey = `autosave_${user?.id}_draft_new`;
+          const savedData = localStorage.getItem(localStorageKey);
+          if (savedData) {
+            try {
+              const parsed = JSON.parse(savedData);
+              if (parsed.data && parsed.timestamp) {
+                const savedTime = new Date(parsed.timestamp);
+                const timeDiff = now.getTime() - savedTime.getTime();
+                if (timeDiff < 7 * 24 * 60 * 60 * 1000) { // Less than 7 days old
+                  form.reset(parsed.data);
+                  toast.info('Recovered your last unsaved changes from local storage');
+                }
+              }
+            } catch (e) {
+              logger.error('Failed to parse localStorage data:', e);
+            }
+          }
           return;
         }
 
@@ -256,6 +275,12 @@ const Apply = () => {
     if (!currentValues.full_name && parsedData.full_name) {
       updates.full_name = parsedData.full_name;
     }
+    if (!currentValues.contact_number && parsedData.contact_number) {
+      updates.contact_number = parsedData.contact_number;
+    }
+    if (!currentValues.residential_address && parsedData.residential_address) {
+      updates.residential_address = parsedData.residential_address;
+    }
     if (!currentValues.email && parsedData.email) {
       // Email is not in the form directly, but we can log it
       logger.log('Detected email:', parsedData.email);
@@ -278,6 +303,12 @@ const Apply = () => {
     }
     if (!currentValues.work_experience && parsedData.experience) {
       updates.work_experience = parsedData.experience;
+    }
+    if (!currentValues.languages_spoken && parsedData.languages_spoken) {
+      updates.languages_spoken = parsedData.languages_spoken;
+    }
+    if (!currentValues.skills_competencies && parsedData.skills_competencies) {
+      updates.skills_competencies = parsedData.skills_competencies;
     }
 
     // Update form with new values
@@ -1186,9 +1217,9 @@ const Apply = () => {
                   <Button 
                     type="submit" 
                     className="btn-gradient-accent text-accent-foreground"
-                    disabled={isSubmitting}
+                    disabled={form.formState.isSubmitting}
                   >
-                    {isSubmitting ? (
+                    {form.formState.isSubmitting ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Submitting...

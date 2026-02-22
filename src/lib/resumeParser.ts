@@ -13,6 +13,10 @@ export interface ParsedResumeData {
   year_of_study?: string;
   subjects_completed?: string;
   experience?: string;
+  contact_number?: string;
+  residential_address?: string;
+  languages_spoken?: string;
+  skills_competencies?: string;
 }
 
 /**
@@ -102,15 +106,41 @@ export const parseResumeText = (text: string): ParsedResumeData => {
     }
   }
 
-  // Extract degree program (BSc, BA, BCom, Honours, etc.)
-  const degreePatterns = [
-    /\b(Bachelor of Science|BSc|Bachelor of Arts|BA|Bachelor of Commerce|BCom|Bachelor of Education|BEd|Master of Science|MSc|Honours?)\b/gi,
+  // Extract contact number (starts with 0 or +)
+  const phoneRegex = /(?:\+27|0)\s*(?:\d[\s-]*){8,10}/gi;
+  const phoneMatches = normalizedText.match(phoneRegex);
+  if (phoneMatches && phoneMatches.length > 0) {
+    data.contact_number = phoneMatches[0].trim();
+  }
+
+  // Extract degree program (BSc, BA, BCom, Honours, etc.) - expanded list
+  const degreeKeywords = [
+    'Bachelor of Science', 'BSc',
+    'Bachelor of Arts', 'BA',
+    'Bachelor of Commerce', 'BCom',
+    'Bachelor of Education', 'BEd',
+    'Master of Science', 'MSc',
+    'Master of Commerce', 'MCom',
+    'Master of Public Administration', 'MPA',
+    'Master of Arts', 'MA',
+    'Doctor of Philosophy', 'PhD',
+    'Bachelor of Social Science',
+    'Bachelor of Music',
+    'Bachelor of Social Work',
+    'Bachelor of Nursing',
+    'Bachelor of Speech-Language Therapy',
+    'Master of Nursing',
+    'Bachelor of Agriculture', 'BAgric', 'BSc (Agric)',
+    'Master of Education', 'MEd',
+    'Post Graduate Diploma in Education', 'PGCE',
+    'Doctor of Law', 'LLD',
+    'Master of Law', 'LLM',
+    'Bachelor of Laws', 'LLB',
   ];
 
-  for (const pattern of degreePatterns) {
-    const matches = normalizedText.match(pattern);
-    if (matches) {
-      data.degree_program = matches[0];
+  for (const degree of degreeKeywords) {
+    if (normalizedText.toLowerCase().includes(degree.toLowerCase())) {
+      data.degree_program = degree;
       break;
     }
   }
@@ -129,15 +159,82 @@ export const parseResumeText = (text: string): ParsedResumeData => {
     data.subjects_completed = [...new Set(subjects)].slice(0, 10).join(', ');
   }
 
-  // Extract experience from sections
-  const experienceSectionPattern =
-    /(?:Experience|Work History|Professional Experience|Employment|Previous Roles?)[:\s]+([\s\S]*?)(?=\n\n|Experience|Education|Skills|$)/gi;
+  // Extract residential address (look for keywords like street, avenue, road, etc.)
+  const addressPatterns = [
+    /(?:Address|Residential Address|Home Address)[:\s]+([^,\n]+(?:,[^,\n]+){0,2})/gi,
+    /(\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Close|Crescent|Gardens|Park|Place|Square|Court|Terrace|Heights)[\w\s]*,?\s*[A-Za-z\s]+,?\s*\d{4,5})/gi,
+  ];
 
-  const experienceMatches = normalizedText.match(experienceSectionPattern);
-  if (experienceMatches && experienceMatches.length > 0) {
-    // Extract first 200 characters from experience section
-    const experienceText = experienceMatches[0].replace(/^Experience[:\s]+/i, '');
-    data.experience = experienceText.substring(0, 200).trim();
+  for (const pattern of addressPatterns) {
+    const matches = normalizedText.match(pattern);
+    if (matches) {
+      data.residential_address = matches[0].replace(/^Address[:\s]+|^Residential Address[:\s]+|^Home Address[:\s]+/i, '').trim();
+      break;
+    }
+  }
+
+  // Extract work experience and employment history
+  const experienceSectionPatterns = [
+    /(?:Work Experience|Professional Experience|Employment|Employment History|Previous Roles?)[:\s]+([\s\S]*?)(?=\n\n|Work Experience|Education|Skills|Languages|$)/gi,
+    /(?:Experience)[:\s]+([\s\S]*?)(?=\n\n|Education|Skills|Languages|$)/gi,
+  ];
+
+  for (const pattern of experienceSectionPatterns) {
+    const matches = normalizedText.match(pattern);
+    if (matches && matches.length > 0) {
+      const experienceText = matches[0]
+        .replace(/^Work Experience[:\s]+|^Professional Experience[:\s]+|^Employment[:\s]+|^Employment History[:\s]+|^Experience[:\s]+/i, '')
+        .trim();
+      if (experienceText.length > 0) {
+        data.experience = experienceText.substring(0, 300).trim();
+        break;
+      }
+    }
+  }
+
+  // Extract languages spoken
+  const languageSectionPatterns = [
+    /(?:Languages?|Languages Spoken)[:\s]+([\s\S]*?)(?=\n\n|Skills|Experience|Education|$)/gi,
+  ];
+
+  for (const pattern of languageSectionPatterns) {
+    const matches = normalizedText.match(pattern);
+    if (matches && matches.length > 0) {
+      const languagesText = matches[0]
+        .replace(/^Languages?[:\s]+|^Languages Spoken[:\s]+/i, '')
+        .split(/[,\n]/)
+        .map(lang => lang.trim())
+        .filter(lang => lang && lang.length > 1)
+        .filter(lang => !lang.match(/^\d+|^•|^-|^language/i))
+        .slice(0, 8)
+        .join(', ');
+      if (languagesText.length > 0) {
+        data.languages_spoken = languagesText;
+        break;
+      }
+    }
+  }
+
+  // Extract skills and competencies
+  const skillsSectionPatterns = [
+    /(?:Skills|Competencies|Skills & Competencies|Key Skills)[:\s]+([\s\S]*?)(?=\n\n|Experience|Languages|Education|$)/gi,
+  ];
+
+  for (const pattern of skillsSectionPatterns) {
+    const matches = normalizedText.match(pattern);
+    if (matches && matches.length > 0) {
+      const skillsText = matches[0]
+        .replace(/^Skills[:\s]+|^Competencies[:\s]+|^Skills & Competencies[:\s]+|^Key Skills[:\s]+/i, '')
+        .split(/[,\n]/)
+        .map(skill => skill.trim().replace(/^•\s*|^-\s*/g, ''))
+        .filter(skill => skill && skill.length > 1)
+        .slice(0, 10)
+        .join(', ');
+      if (skillsText.length > 0) {
+        data.skills_competencies = skillsText;
+        break;
+      }
+    }
   }
 
   // Extract faculty (Faculty of Education, Faculty of Science, etc.)

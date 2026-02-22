@@ -206,6 +206,46 @@ export const useAutoSave = ({
     }
   }, [userId, applicationId, formData, enabled, isOnline, saveToLocalStorage, clearLocalStorage]);
 
+  // Handle page unload - save data before user leaves
+  useEffect(() => {
+    if (!enabled || !userId || !applicationId) {
+      return;
+    }
+
+    const handleBeforeUnload = async (e: BeforeUnloadEvent) => {
+      // Check if there are unsaved changes
+      const hasUnsavedChanges = JSON.stringify(previousDataRef.current) !== JSON.stringify(formData);
+      
+      if (hasUnsavedChanges && isOnline) {
+        // Save to localStorage as a backup
+        saveToLocalStorage();
+        
+        // Optionally prevent unload if desired
+        // e.preventDefault();
+        // e.returnValue = '';
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      // Save when page loses focus
+      if (document.hidden) {
+        const hasUnsavedChanges = JSON.stringify(previousDataRef.current) !== JSON.stringify(formData);
+        if (hasUnsavedChanges) {
+          performSave();
+          saveToLocalStorage();
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [enabled, userId, applicationId, formData, isOnline, saveToLocalStorage, performSave]);
+
   // Main autosave effect with debouncing
   useEffect(() => {
     if (!enabled || !userId || !applicationId) {

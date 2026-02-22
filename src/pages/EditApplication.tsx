@@ -1191,9 +1191,9 @@ const EditApplication = () => {
                       <Button
                         type="submit"
                         className="btn-gradient-accent text-accent-foreground w-full sm:w-auto"
-                        disabled={isSubmitting}
+                        disabled={form.formState.isSubmitting}
                       >
-                        {isSubmitting ? (
+                        {form.formState.isSubmitting ? (
                           <>
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             Updating...

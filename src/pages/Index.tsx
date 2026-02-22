@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Users, FileCheck, ChevronRight, CheckCircle2, Clock, Shield } from 'lucide-react';
+import { Users, FileCheck, ChevronRight, CheckCircle2, Clock, Shield, GraduationCap } from 'lucide-react';
 import { UFHLogo } from '@/components/UFHLogo';
 import { useAuth } from '@/contexts/AuthContext';
 import Typewriter from '@/components/Typewriter';
@@ -109,7 +109,7 @@ const Index = () => {
             <Card className="group border-0 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 overflow-hidden">
               <CardContent className="p-8">
                 <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary group-hover:scale-110 transition-all">
-                  <UFHLogo className="w-7 h-7 text-primary group-hover:text-primary-foreground transition-colors" />
+                  <GraduationCap className="w-7 h-7 text-primary group-hover:text-primary-foreground transition-colors" />
                 </div>
                 <h3 className="text-xl font-semibold text-foreground mb-3">Academic Growth</h3>
                 <p className="text-muted-foreground">
