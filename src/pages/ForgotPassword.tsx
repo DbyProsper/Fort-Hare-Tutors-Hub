@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { GraduationCap, ArrowLeft, Loader2, Mail } from 'lucide-react';
+import { ArrowLeft, Loader2, Mail } from 'lucide-react';
+import { UFHLogo } from '@/components/UFHLogo';
 import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -94,7 +95,7 @@ const ForgotPassword = () => {
         <CardHeader className="text-center">
           <Link to="/" className="flex items-center justify-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-              <GraduationCap className="w-6 h-6 text-primary-foreground" />
+              <UFHLogo className="w-6 h-6" />
             </div>
             <div>
               <h1 className="font-bold text-lg text-foreground">UFH Tutors</h1>

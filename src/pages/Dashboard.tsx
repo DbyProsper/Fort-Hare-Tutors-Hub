@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
-  GraduationCap, 
   FileText, 
   Clock, 
   CheckCircle2, 
@@ -18,6 +17,7 @@ import {
   Edit,
   Loader2
 } from 'lucide-react';
+import { UFHLogo } from '@/components/UFHLogo';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -177,7 +177,7 @@ const Dashboard = () => {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-              <GraduationCap className="w-6 h-6 text-primary-foreground" />
+              <UFHLogo className="w-6 h-6" />
             </div>
             <div>
               <h1 className="font-bold text-lg text-foreground">UFH Tutors</h1>

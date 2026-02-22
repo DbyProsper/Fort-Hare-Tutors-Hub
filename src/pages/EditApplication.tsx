@@ -14,7 +14,6 @@ import { Badge } from '@/components/ui/badge';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator';
 import { 
-  GraduationCap, 
   ArrowLeft, 
   ArrowRight, 
   Loader2, 
@@ -29,6 +28,7 @@ import {
   FileText,
   LogOut
 } from 'lucide-react';
+import { UFHLogo } from '@/components/UFHLogo';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -561,7 +561,7 @@ const EditApplication = () => {
       <header className="bg-sidebar text-sidebar-foreground sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <GraduationCap className="w-8 h-8" />
+            <UFHLogo className="w-8 h-8" />
             <span className="font-bold text-xl">UFH Tutors</span>
           </Link>
           <div className="flex items-center gap-4">

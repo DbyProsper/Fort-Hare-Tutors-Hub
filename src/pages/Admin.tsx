@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { 
-  GraduationCap, 
   Search, 
   Filter, 
   Eye, 
@@ -23,6 +22,7 @@ import {
   ChevronRight,
   Download
 } from 'lucide-react';
+import { UFHLogo } from '@/components/UFHLogo';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -260,7 +260,7 @@ const Admin = () => {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-sidebar-primary flex items-center justify-center">
-              <GraduationCap className="w-6 h-6 text-sidebar-primary-foreground" />
+              <UFHLogo className="w-6 h-6" />
             </div>
             <div>
               <h1 className="font-bold text-lg">UFH Tutors</h1>
