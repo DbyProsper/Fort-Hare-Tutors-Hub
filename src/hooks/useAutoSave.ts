@@ -8,6 +8,7 @@ interface UseAutoSaveOptions {
   formData: Record<string, any>;
   debounceMs?: number;
   enabled?: boolean;
+  autoSaveDraft?: boolean;
 }
 
 interface SaveStatus {
@@ -20,8 +21,9 @@ export const useAutoSave = ({
   userId,
   applicationId,
   formData,
-  debounceMs = 900,
+  debounceMs = 2000,
   enabled = true,
+  autoSaveDraft = true,
 }: UseAutoSaveOptions) => {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>({
     status: 'idle',
@@ -109,6 +111,9 @@ export const useAutoSave = ({
       }
 
       // Prepare data for Supabase - map form fields to database columns
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+
       const applicationData = {
         id: applicationId,
         user_id: userId,
@@ -150,7 +155,9 @@ export const useAutoSave = ({
         availability: formData.availability || null,
         motivation_letter: formData.motivation_letter || '',
         status: 'draft', // Always save as draft via autosave
-        updated_at: new Date().toISOString(),
+        last_updated_at: now.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        updated_at: now.toISOString(),
       };
 
       const { error } = await supabase

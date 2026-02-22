@@ -31,9 +31,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLoading } from '@/contexts/LoadingContext';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator';
+import { ParsingOverlay } from '@/components/ParsingOverlay';
+import { ReviewNotificationBanner } from '@/components/ReviewNotificationBanner';
+import { ResumeUpload } from '@/components/ResumeUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
+import { ParsedResumeData } from '@/lib/resumeParser';
 
 const FACULTIES = [
   'Faculty of Education',
@@ -115,6 +119,8 @@ const Apply = () => {
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
   const [isUploading, setIsUploading] = useState<string | null>(null);
+  const [parsingResume, setParsingResume] = useState(false);
+  const [showReviewNotification, setShowReviewNotification] = useState(false);
 
   const form = useForm<ApplicationFormData>({
     resolver: zodResolver(applicationSchema),
@@ -177,6 +183,22 @@ const Apply = () => {
       if (error) throw error;
 
       if (data) {
+        // Check if draft has expired
+        const expiresAt = data.expires_at ? new Date(data.expires_at) : null;
+        const now = new Date();
+
+        if (expiresAt && expiresAt < now) {
+          // Draft has expired - delete it and do not load
+          await supabase
+            .from('tutor_applications')
+            .delete()
+            .eq('id', data.id);
+
+          logger.log('Expired draft deleted:', data.id);
+          toast.info('Your saved draft has expired. Please start a new application.');
+          return;
+        }
+
         setApplicationId(data.id);
         // Populate form with existing data
         form.reset({
@@ -216,6 +238,61 @@ const Apply = () => {
     } catch (error) {
       logger.error('Error checking existing application:', error);
     }
+  };
+
+  const handleResumeParsingStart = () => {
+    setParsingResume(true);
+  };
+
+  const handleResumeParsingComplete = (parsedData: ParsedResumeData) => {
+    setParsingResume(false);
+    logger.log('Resume parsing complete:', parsedData);
+
+    // Auto-fill form fields with detected data (only if empty)
+    const currentValues = form.getValues();
+    const updates: Partial<ApplicationFormData> = {};
+
+    // Only populate empty fields
+    if (!currentValues.full_name && parsedData.full_name) {
+      updates.full_name = parsedData.full_name;
+    }
+    if (!currentValues.email && parsedData.email) {
+      // Email is not in the form directly, but we can log it
+      logger.log('Detected email:', parsedData.email);
+    }
+    if (!currentValues.degree_program && parsedData.degree_program) {
+      updates.degree_program = parsedData.degree_program;
+    }
+    if (!currentValues.faculty && parsedData.faculty) {
+      updates.faculty = parsedData.faculty;
+    }
+    if (!currentValues.year_of_study && parsedData.year_of_study) {
+      // Parse year string (e.g., "3rd Year" → 3)
+      const yearMatch = parsedData.year_of_study.match(/(\d+)/);
+      if (yearMatch) {
+        updates.year_of_study = parseInt(yearMatch[1]);
+      }
+    }
+    if (!currentValues.subjects_completed && parsedData.subjects_completed) {
+      updates.subjects_completed = parsedData.subjects_completed;
+    }
+    if (!currentValues.work_experience && parsedData.experience) {
+      updates.work_experience = parsedData.experience;
+    }
+
+    // Update form with new values
+    if (Object.keys(updates).length > 0) {
+      form.reset({ ...currentValues, ...updates });
+      setShowReviewNotification(true);
+      toast.success('Information successfully extracted from CV');
+    } else {
+      toast.info('No additional information found in your CV');
+    }
+  };
+
+  const handleResumeParsingError = (error: string) => {
+    setParsingResume(false);
+    logger.error('Resume parsing error:', error);
   };
 
   const handleSaveDraft = async () => {
@@ -506,6 +583,7 @@ const Apply = () => {
 
   return (
     <div className="min-h-screen bg-muted/30">
+      <ParsingOverlay isVisible={parsingResume} />
       {/* Header */}
       <header className="bg-background border-b border-border sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -704,6 +782,22 @@ const Apply = () => {
                     <CardDescription>Tell us about your studies</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Resume Upload Section */}
+                    <div className="pb-4 border-b border-border">
+                      <h3 className="text-sm font-semibold mb-2">Auto-Fill from CV (Optional)</h3>
+                      <ResumeUpload
+                        onParsingStart={handleResumeParsingStart}
+                        onParsingComplete={handleResumeParsingComplete}
+                        onError={handleResumeParsingError}
+                      />
+                    </div>
+
+                    {/* Review Notification Banner */}
+                    <ReviewNotificationBanner
+                      isVisible={showReviewNotification}
+                      onDismiss={() => setShowReviewNotification(false)}
+                    />
+
                     <FormField
                       control={form.control}
                       name="degree_program"
