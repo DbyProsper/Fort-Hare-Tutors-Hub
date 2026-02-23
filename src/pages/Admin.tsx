@@ -53,6 +53,13 @@ interface Application {
   work_experience: string | null;
   availability: any;
   rejection_reason: string | null;
+  // Offer workflow fields (may be null for older records)
+  offer_status?: string | null;
+  offer_sent_at?: string | null;
+  document_rejection_reason?: string | null;
+  document_rejected_at?: string | null;
+  resubmission_count?: number | null;
+  last_resubmitted_at?: string | null;
 }
 
 interface Document {
@@ -81,9 +88,12 @@ const Admin = () => {
   const [facultyFilter, setFacultyFilter] = useState('all');
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [isSendingOffer, setIsSendingOffer] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [isOfferRejecting, setIsOfferRejecting] = useState(false);
+  const [offerRejectionReason, setOfferRejectionReason] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
@@ -148,6 +158,95 @@ const Admin = () => {
     setSelectedApplication(application);
     await fetchDocuments(application.id);
     setIsDialogOpen(true);
+  };
+
+  const sendOffer = async (applicationId: string) => {
+    setIsSendingOffer(true);
+    setMessage('Sending offer...');
+    setLoading(true);
+    try {
+      // Call an Edge Function (implement server-side) to send email with attachments
+      // Function name: send_offer_email
+      try {
+        // Attempt to invoke Supabase Edge Function if present
+        // @ts-ignore
+        if (supabase.functions && typeof supabase.functions.invoke === 'function') {
+          await supabase.functions.invoke('send_offer_email', {
+            body: JSON.stringify({ application_id: applicationId })
+          });
+        }
+      } catch (err) {
+        // Non-fatal - fallback to enqueue or just update DB
+        logger.warn('send_offer_email function not available or failed:', err);
+      }
+
+      const { error } = await supabase
+        .from('tutor_applications')
+        .update({ offer_status: 'SENT', offer_sent_at: new Date().toISOString() } as any)
+        .eq('id', applicationId);
+
+      if (error) throw error;
+
+      toast.success('Offer sent');
+      await fetchApplications();
+    } catch (error) {
+      logger.error('Error sending offer:', error);
+      toast.error('Failed to send offer');
+    } finally {
+      setIsSendingOffer(false);
+      setLoading(false);
+      setMessage('Loading...');
+    }
+  };
+
+  const approveOfferDocuments = async (applicationId: string) => {
+    setIsUpdating(true);
+    setMessage('Verifying documents...');
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('tutor_applications')
+        .update({ offer_status: 'VERIFIED', appointment_status: 'FINALIZED' } as any)
+        .eq('id', applicationId);
+      if (error) throw error;
+      toast.success('Offer documents approved');
+      await fetchApplications();
+      setIsDialogOpen(false);
+    } catch (err) {
+      logger.error('Error approving offer documents:', err);
+      toast.error('Failed to approve documents');
+    } finally {
+      setIsUpdating(false);
+      setLoading(false);
+      setMessage('Loading...');
+    }
+  };
+
+  const rejectOfferDocuments = async (applicationId: string, reason: string) => {
+    if (!reason.trim()) {
+      toast.error('Rejection reason required');
+      return;
+    }
+    setIsUpdating(true);
+    setMessage('Rejecting documents...');
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('tutor_applications')
+        .update({ offer_status: 'RESUBMISSION_REQUIRED', document_rejection_reason: reason, document_rejected_at: new Date().toISOString() } as any)
+        .eq('id', applicationId);
+      if (error) throw error;
+      toast.success('Documents rejected; applicant will be asked to resubmit');
+      await fetchApplications();
+      setIsDialogOpen(false);
+    } catch (err) {
+      logger.error('Error rejecting offer documents:', err);
+      toast.error('Failed to reject documents');
+    } finally {
+      setIsUpdating(false);
+      setLoading(false);
+      setMessage('Loading...');
+    }
   };
 
   const handleUpdateStatus = async (newStatus: string) => {
@@ -424,9 +523,27 @@ const Admin = () => {
                       <Badge className={statusConfig[app.status as keyof typeof statusConfig]?.color}>
                         {statusConfig[app.status as keyof typeof statusConfig]?.label}
                       </Badge>
+                      {/* Offer status badge (if any) */}
+                      {app.offer_status && (
+                        <Badge variant="outline">{String(app.offer_status)}</Badge>
+                      )}
                       <span className="text-sm text-muted-foreground hidden md:block">
                         {app.submitted_at && new Date(app.submitted_at).toLocaleDateString('en-ZA')}
                       </span>
+                      {/* Send Offer button for approved applicants */}
+                      {app.status === 'approved' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!confirm(`Send offer to ${app.full_name}?`)) return;
+                            sendOffer(app.id);
+                          }}
+                        >
+                          Send Offer
+                        </Button>
+                      )}
                       <ChevronRight className="w-5 h-5 text-muted-foreground" />
                     </div>
                   </div>
@@ -557,6 +674,45 @@ const Admin = () => {
                       ))
                     )}
                   </div>
+
+                  {/* Offer document verification panel */}
+                  {documents.some(d => d.document_type === 'offer_affidavit' || d.document_type === 'offer_personal_info') && (
+                    <div className="mt-4 p-4 border rounded">
+                      <h5 className="font-semibold">Offer Documents</h5>
+                      <p className="text-sm text-muted-foreground mb-2">Uploaded offer acceptance documents</p>
+                      <div className="space-y-2">
+                        {documents.filter(d => d.document_type === 'offer_affidavit' || d.document_type === 'offer_personal_info').map(d => (
+                          <div key={d.id} className="flex items-center justify-between p-2 border rounded">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-sm">{d.file_name}</span>
+                              <Badge variant="outline" className="text-xs">{d.document_type.replace('_', ' ')}</Badge>
+                            </div>
+                            <div>
+                              <Button variant="ghost" size="sm" onClick={() => downloadDocument(d)}><Download className="w-4 h-4" /></Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2 mt-3">
+                        <Button onClick={() => approveOfferDocuments(selectedApplication!.id)} disabled={isUpdating}>
+                          {isUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                          Approve Documents
+                        </Button>
+                        {!isOfferRejecting ? (
+                          <Button variant="destructive" onClick={() => setIsOfferRejecting(true)}>Reject Documents</Button>
+                        ) : (
+                          <div className="flex-1">
+                            <Textarea placeholder="Reason for rejection" value={offerRejectionReason} onChange={(e) => setOfferRejectionReason(e.target.value)} />
+                            <div className="flex gap-2 mt-2">
+                              <Button variant="outline" onClick={() => { setIsOfferRejecting(false); setOfferRejectionReason(''); }}>Cancel</Button>
+                              <Button variant="destructive" onClick={() => rejectOfferDocuments(selectedApplication!.id, offerRejectionReason)} disabled={!offerRejectionReason.trim() || isUpdating}>Confirm Reject</Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Rejection Reason Input */}

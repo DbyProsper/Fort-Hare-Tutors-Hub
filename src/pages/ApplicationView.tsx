@@ -91,6 +91,9 @@ const ApplicationView = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [application, setApplication] = useState<any>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
+  const [offerAffidavitFile, setOfferAffidavitFile] = useState<File | null>(null);
+  const [offerPersonalFormFile, setOfferPersonalFormFile] = useState<File | null>(null);
+  const [isUploadingOfferDocs, setIsUploadingOfferDocs] = useState(false);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   logger.log('ApplicationView rendered');
@@ -245,7 +248,7 @@ const ApplicationView = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={{ width: '40px', height: '40px', backgroundColor: '#3b82f6', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <UFHLogo style={{ width: '50px', height: '50px' }} />
+                <UFHLogo />
               </div>
               <div>
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1f2937' }}>UFH Tutors</h1>
@@ -263,6 +266,96 @@ const ApplicationView = () => {
             </div>
           </div>
         </div>
+            {/* Offer Documents (Applicant Upload / Instructions) */}
+            {(application.offer_status === 'SENT' || application.offer_status === 'RESUBMISSION_REQUIRED') && (
+              <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
+                <div style={{ padding: '1.5rem' }}>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem' }}>Offer Acceptance Documents</h2>
+                  {application.offer_status === 'RESUBMISSION_REQUIRED' && (
+                    <div style={{ marginBottom: '1rem', padding: '0.75rem', border: '1px solid #fde68a', borderRadius: '0.375rem' }}>
+                      <p style={{ color: '#92400e' }}>Your documents were rejected: {application.document_rejection_reason}</p>
+                      <p style={{ color: '#92400e' }}>Please correct and re-upload the signed documents.</p>
+                    </div>
+                  )}
+                  <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
+                    Download the two forms, print and sign them before uploading signed copies: the Tutor Personal Information Form and the Student Tutor/Assistance Acceptance of Post Form/Affidavit.
+                  </p>
+                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Signed Acceptance Affidavit (PDF)</label>
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferAffidavitFile(e.target.files?.[0] || null)} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Signed Personal Info Form (PDF)</label>
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferPersonalFormFile(e.target.files?.[0] || null)} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <button
+                      disabled={isUploadingOfferDocs}
+                      onClick={async () => {
+                        if (!offerAffidavitFile && !offerPersonalFormFile) {
+                          toast.error('Please choose at least one PDF to upload');
+                          return;
+                        }
+                        setIsUploadingOfferDocs(true);
+                        setMessage('Uploading signed documents...');
+                        setLoading(true);
+                        try {
+                          const uploads: UploadedDocument[] = [];
+                          const nowTs = Date.now();
+                          if (offerAffidavitFile) {
+                            if (offerAffidavitFile.type !== 'application/pdf') throw new Error('Affidavit must be a PDF');
+                            const path = `${id}/offer_affidavit_${nowTs}.pdf`;
+                            const { data, error } = await supabase.storage.from('application-documents').upload(path, offerAffidavitFile, { contentType: 'application/pdf' });
+                            if (error) throw error;
+                            // insert metadata
+                            const { error: insErr } = await supabase.from('application_documents').insert({ application_id: id, document_type: 'offer_affidavit', file_name: offerAffidavitFile.name, file_path: path, file_size: offerAffidavitFile.size, mime_type: 'application/pdf' } as any);
+                            if (insErr) throw insErr;
+                            uploads.push({ document_type: 'offer_affidavit', file_name: offerAffidavitFile.name, file_path: path, file_size: offerAffidavitFile.size, mime_type: 'application/pdf' });
+                          }
+                          if (offerPersonalFormFile) {
+                            if (offerPersonalFormFile.type !== 'application/pdf') throw new Error('Personal info form must be a PDF');
+                            const path = `${id}/offer_personal_info_${nowTs}.pdf`;
+                            const { data, error } = await supabase.storage.from('application-documents').upload(path, offerPersonalFormFile, { contentType: 'application/pdf' });
+                            if (error) throw error;
+                            const { error: insErr } = await supabase.from('application_documents').insert({ application_id: id, document_type: 'offer_personal_info', file_name: offerPersonalFormFile.name, file_path: path, file_size: offerPersonalFormFile.size, mime_type: 'application/pdf' } as any);
+                            if (insErr) throw insErr;
+                            uploads.push({ document_type: 'offer_personal_info', file_name: offerPersonalFormFile.name, file_path: path, file_size: offerPersonalFormFile.size, mime_type: 'application/pdf' });
+                          }
+
+                          // Update application status (if resubmission, increment counters)
+                          const updates: any = { offer_status: 'SIGNED_UPLOADED' };
+                          if (application.offer_status === 'RESUBMISSION_REQUIRED') {
+                            updates.resubmission_count = (application.resubmission_count || 0) + 1;
+                            updates.last_resubmitted_at = new Date().toISOString();
+                          }
+                          const { error: appErr } = await supabase.from('tutor_applications').update(updates as any).eq('id', id);
+                          if (appErr) throw appErr;
+
+                          toast.success('Documents uploaded successfully');
+                          // Refresh documents list
+                          const { data: docs, error: docsError } = await supabase.from('application_documents').select('*').eq('application_id', id);
+                          if (!docsError && docs) setUploadedDocuments(docs);
+                          // update local application state
+                          setApplication((prev: any) => ({ ...prev, ...updates }));
+                        } catch (err: any) {
+                          logger.error('Error uploading offer documents:', err);
+                          toast.error(err.message || 'Failed to upload documents');
+                        } finally {
+                          setIsUploadingOfferDocs(false);
+                          setLoading(false);
+                          setMessage('Loading...');
+                        }
+                      }}
+                      style={{ backgroundColor: '#3b82f6', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 'none' }}
+                    >
+                      {isUploadingOfferDocs ? 'Uploading...' : 'Upload Signed Documents'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
       </header>
 
       {/* Status Banner */}
