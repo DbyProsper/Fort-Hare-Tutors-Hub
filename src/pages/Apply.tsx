@@ -150,7 +150,7 @@ const Apply = () => {
   const formValues = form.watch();
 
   // Autosave hook - automatically saves form data while typing
-  const { saveStatus } = useAutoSave({
+  const { saveStatus, forceSave } = useAutoSave({
     userId: user?.id,
     applicationId: applicationId || undefined,
     formData: formValues,
@@ -167,6 +167,15 @@ const Apply = () => {
   useEffect(() => {
     if (user) {
       form.setValue('full_name', user.user_metadata?.full_name || '');
+      
+      // Extract student number from UFH email
+      if (user.email && user.email.endsWith('@ufh.ac.za')) {
+        const studentNumberMatch = user.email.match(/^(\d+)@ufh\.ac\.za$/);
+        if (studentNumberMatch) {
+          form.setValue('student_number', studentNumberMatch[1]);
+        }
+      }
+      
       checkExistingApplication();
     }
   }, [user]);
@@ -183,11 +192,12 @@ const Apply = () => {
       if (error) throw error;
 
       if (data) {
-        // Check if draft has expired
-        const expiresAt = data.expires_at ? new Date(data.expires_at) : null;
+        // Check if draft has expired (using created_at as reference)
+        const createdAt = data.created_at ? new Date(data.created_at) : null;
         const now = new Date();
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-        if (expiresAt && expiresAt < now) {
+        if (createdAt && createdAt < sevenDaysAgo) {
           // Draft has expired - delete it and do not load
           await supabase
             .from('tutor_applications')
@@ -253,9 +263,59 @@ const Apply = () => {
         }
 
         toast.info('Continuing from your saved draft');
+      } else {
+        // Create a new draft application if none exists
+        createNewDraft();
       }
     } catch (error) {
       logger.error('Error checking existing application:', error);
+      // Try to create a new draft on error
+      createNewDraft();
+    }
+  };
+
+  const createNewDraft = async () => {
+    try {
+      const now = new Date();
+
+      const newApplicationData = {
+        user_id: user?.id,
+        full_name: form.getValues('full_name') || user?.user_metadata?.full_name || '',
+        student_number: form.getValues('student_number') || '',
+        date_of_birth: null,
+        gender: null,
+        nationality: 'South African',
+        residential_address: '',
+        contact_number: '',
+        email: user?.email || '',
+        degree_program: '',
+        faculty: '',
+        department: '',
+        year_of_study: 1,
+        subjects_completed: '',
+        subjects_to_tutor: '',
+        previous_tutoring_experience: null,
+        work_experience: null,
+        skills_competencies: '',
+        languages_spoken: '',
+        availability: null,
+        motivation_letter: '',
+        status: 'draft',
+        updated_at: now.toISOString(),
+      };
+
+      const { data, error } = await supabase
+        .from('tutor_applications')
+        .insert(newApplicationData as any)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setApplicationId(data.id);
+      logger.log('New draft application created:', data.id);
+    } catch (error) {
+      logger.error('Error creating new draft application:', error);
     }
   };
 
@@ -280,10 +340,6 @@ const Apply = () => {
     }
     if (!currentValues.residential_address && parsedData.residential_address) {
       updates.residential_address = parsedData.residential_address;
-    }
-    if (!currentValues.email && parsedData.email) {
-      // Email is not in the form directly, but we can log it
-      logger.log('Detected email:', parsedData.email);
     }
     if (!currentValues.degree_program && parsedData.degree_program) {
       updates.degree_program = parsedData.degree_program;
@@ -360,26 +416,20 @@ const Apply = () => {
         residential_address: formData.residential_address || 'Draft',
         contact_number: formData.contact_number || 'Draft',
         email: user?.email || '',
-        degree: formData.degree_program || 'Draft', // Map degree_program to degree
         degree_program: formData.degree_program || 'Draft',
         faculty: formData.faculty || 'Draft',
         department: formData.department || 'Draft',
         year_of_study: formData.year_of_study || 1,
-        subjects: (formData.subjects_completed || '') + (formData.subjects_to_tutor ? ', ' + formData.subjects_to_tutor : ''), // Combine as text
         subjects_completed: formData.subjects_completed || '',
         subjects_to_tutor: formData.subjects_to_tutor || '',
-        experience: (formData.previous_tutoring_experience || '') + (formData.work_experience ? ', ' + formData.work_experience : ''), // Combine as text
         previous_tutoring_experience: formData.previous_tutoring_experience || null,
         work_experience: formData.work_experience || null,
         skills_competencies: formData.skills_competencies || '',
         languages_spoken: formData.languages_spoken || '',
         availability: formData.availability || '',
-        motivation: formData.motivation_letter || 'Draft', // Map motivation_letter to motivation
         motivation_letter: formData.motivation_letter || 'Draft',
         status: 'draft' as const,
       };
-
-      console.log('Application data to insert:', applicationData);
 
       logger.log('Application data prepared');
 
@@ -387,7 +437,7 @@ const Apply = () => {
         logger.log('Updating existing application');
         const { error } = await supabase
           .from('tutor_applications')
-          .update(applicationData)
+          .update(applicationData as any)
           .eq('id', applicationId);
 
         if (error) {
@@ -399,7 +449,7 @@ const Apply = () => {
         logger.log('Inserting new application');
         const { data, error } = await supabase
           .from('tutor_applications')
-          .insert(applicationData)
+          .insert(applicationData as any)
           .select()
           .single();
 
@@ -543,21 +593,17 @@ const Apply = () => {
         residential_address: data.residential_address,
         contact_number: data.contact_number,
         email: user?.email || '',
-        degree: data.degree_program, // Map degree_program to degree
         degree_program: data.degree_program,
         faculty: data.faculty,
         department: data.department,
         year_of_study: data.year_of_study,
-        subjects: (data.subjects_completed || '') + (data.subjects_to_tutor ? ', ' + data.subjects_to_tutor : ''), // Combine as text
         subjects_completed: data.subjects_completed || '',
         subjects_to_tutor: data.subjects_to_tutor || '',
-        experience: (data.previous_tutoring_experience || '') + (data.work_experience ? ', ' + data.work_experience : ''), // Combine as text
         previous_tutoring_experience: data.previous_tutoring_experience,
         work_experience: data.work_experience,
         skills_competencies: data.skills_competencies || '',
         languages_spoken: data.languages_spoken || '',
         availability: data.availability,
-        motivation: data.motivation_letter, // Map motivation_letter to motivation
         motivation_letter: data.motivation_letter,
         status: 'pending' as const,
         submitted_at: new Date().toISOString(),
@@ -566,14 +612,14 @@ const Apply = () => {
       if (applicationId) {
         const { error } = await supabase
           .from('tutor_applications')
-          .update(applicationData)
+          .update(applicationData as any)
           .eq('id', applicationId);
 
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('tutor_applications')
-          .insert(applicationData);
+          .insert(applicationData as any);
 
         if (error) throw error;
       }
@@ -590,12 +636,49 @@ const Apply = () => {
   };
 
   const handleSignOut = async () => {
+    // Force save before signing out
+    if (forceSave && applicationId) {
+      await forceSave();
+    }
     await signOut();
     navigate('/auth');
   };
 
-  const nextStep = () => {
-    if (currentStep < 5) setCurrentStep(currentStep + 1);
+  const getFieldsForStep = (step: number): (keyof ApplicationFormData)[] => {
+    switch (step) {
+      case 1:
+        return ['full_name', 'student_number', 'date_of_birth', 'gender', 'nationality', 'residential_address', 'contact_number'];
+      case 2:
+        return ['degree_program', 'faculty', 'department', 'year_of_study', 'subjects_completed', 'subjects_to_tutor'];
+      case 3:
+        return ['previous_tutoring_experience', 'work_experience', 'skills_competencies', 'languages_spoken', 'availability', 'motivation_letter'];
+      case 4:
+        return []; // Documents are validated separately
+      default:
+        return [];
+    }
+  };
+
+  const nextStep = async () => {
+    // Special validation for step 4 (Documents)
+    if (currentStep === 4) {
+      const missingDocs = REQUIRED_DOCUMENTS.filter(
+        doc => !uploadedDocuments.find(d => d.document_type === doc.type)
+      );
+      if (missingDocs.length > 0) {
+        toast.error(`Please upload all required documents before proceeding: ${missingDocs.map(d => d.label).join(', ')}`);
+        return;
+      }
+      setCurrentStep(5);
+      return;
+    }
+
+    // Validate fields for current step
+    const fields = getFieldsForStep(currentStep);
+    const isValid = await form.trigger(fields);
+    if (isValid && currentStep < 5) {
+      setCurrentStep(currentStep + 1);
+    }
   };
 
   const prevStep = () => {
@@ -620,7 +703,7 @@ const Apply = () => {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/dashboard" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-              <UFHLogo className="w-6 h-6" />
+              <UFHLogo className="w-12 h-12" />
             </div>
             <div>
               <h1 className="font-bold text-lg text-foreground">UFH Tutors</h1>
@@ -798,6 +881,15 @@ const Apply = () => {
                         </FormItem>
                       )}
                     />
+                    {/* Resume Upload Section */}
+                    <div className="pt-4 border-t border-border">
+                      <h3 className="text-sm font-semibold mb-2">Auto-Fill from CV (Optional)</h3>
+                      <ResumeUpload
+                        onParsingStart={handleResumeParsingStart}
+                        onParsingComplete={handleResumeParsingComplete}
+                        onError={handleResumeParsingError}
+                      />
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -813,16 +905,6 @@ const Apply = () => {
                     <CardDescription>Tell us about your studies</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Resume Upload Section */}
-                    <div className="pb-4 border-b border-border">
-                      <h3 className="text-sm font-semibold mb-2">Auto-Fill from CV (Optional)</h3>
-                      <ResumeUpload
-                        onParsingStart={handleResumeParsingStart}
-                        onParsingComplete={handleResumeParsingComplete}
-                        onError={handleResumeParsingError}
-                      />
-                    </div>
-
                     {/* Review Notification Banner */}
                     <ReviewNotificationBanner
                       isVisible={showReviewNotification}

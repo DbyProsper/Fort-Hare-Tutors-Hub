@@ -177,7 +177,7 @@ const Dashboard = () => {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-              <UFHLogo className="w-6 h-6" />
+              <UFHLogo className="w-12 h-12" />
             </div>
             <div>
               <h1 className="font-bold text-lg text-foreground">UFH Tutors</h1>

@@ -269,9 +269,20 @@ export const useAutoSave = ({
     };
   }, [formData, debounceMs, performSave, enabled, userId, applicationId]);
 
+  // Function to force save immediately (useful for signout)
+  const forceSave = useCallback(async () => {
+    // Clear any pending debounce timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    // Execute save immediately
+    await performSave();
+  }, [performSave]);
+
   return {
     saveStatus,
     isSaving: saveStatus.status === 'saving',
     isOnline,
+    forceSave,
   };
 };

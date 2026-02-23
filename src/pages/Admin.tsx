@@ -114,7 +114,12 @@ const Admin = () => {
         .order('submitted_at', { ascending: false });
 
       if (error) throw error;
-      setApplications(data || []);
+      setApplications((data as any[] || []).map((app: any) => ({
+        ...app,
+        subjects_to_tutor: typeof app.subjects_to_tutor === 'string' ? app.subjects_to_tutor.split(',') : app.subjects_to_tutor || [],
+        languages_spoken: typeof app.languages_spoken === 'string' ? app.languages_spoken.split(',') : app.languages_spoken || [],
+        skills_competencies: typeof app.skills_competencies === 'string' ? app.skills_competencies.split(',') : app.skills_competencies || [],
+      })) as Application[]);
     } catch (error) {
       logger.error('Error fetching applications:', error);
       toast.error('Failed to load applications');
@@ -260,7 +265,7 @@ const Admin = () => {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-sidebar-primary flex items-center justify-center">
-              <UFHLogo className="w-6 h-6" />
+              <UFHLogo className="w-12 h-12" />
             </div>
             <div>
               <h1 className="font-bold text-lg">UFH Tutors</h1>
@@ -473,8 +478,11 @@ const Admin = () => {
                     <div className="col-span-2">
                       <dt className="text-muted-foreground">Subjects to Tutor</dt>
                       <dd className="flex flex-wrap gap-1 mt-1">
-                        {selectedApplication.subjects_to_tutor?.split(',').map((subj, index) => (
-                          <Badge key={index} variant="secondary">{subj.trim()}</Badge>
+                        {(Array.isArray(selectedApplication.subjects_to_tutor) 
+                          ? selectedApplication.subjects_to_tutor 
+                          : (selectedApplication.subjects_to_tutor as string)?.split(',') || []
+                        ).map((subj, index) => (
+                          <Badge key={index} variant="secondary">{typeof subj === 'string' ? subj.trim() : subj}</Badge>
                         ))}
                       </dd>
                     </div>
@@ -488,16 +496,22 @@ const Admin = () => {
                     <div>
                       <dt className="text-muted-foreground">Languages</dt>
                       <dd className="flex flex-wrap gap-1 mt-1">
-                        {selectedApplication.languages_spoken?.split(',').map((lang, index) => (
-                          <Badge key={index} variant="outline">{lang.trim()}</Badge>
+                        {(Array.isArray(selectedApplication.languages_spoken)
+                          ? selectedApplication.languages_spoken
+                          : (selectedApplication.languages_spoken as string)?.split(',') || []
+                        ).map((lang, index) => (
+                          <Badge key={index} variant="outline">{typeof lang === 'string' ? lang.trim() : lang}</Badge>
                         ))}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-muted-foreground">Skills</dt>
                       <dd className="flex flex-wrap gap-1 mt-1">
-                        {selectedApplication.skills_competencies?.split(',').map((skill, index) => (
-                          <Badge key={index} variant="outline">{skill.trim()}</Badge>
+                        {(Array.isArray(selectedApplication.skills_competencies)
+                          ? selectedApplication.skills_competencies
+                          : (selectedApplication.skills_competencies as string)?.split(',') || []
+                        ).map((skill, index) => (
+                          <Badge key={index} variant="outline">{typeof skill === 'string' ? skill.trim() : skill}</Badge>
                         ))}
                       </dd>
                     </div>

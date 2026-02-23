@@ -109,7 +109,7 @@ const STEPS = [
 const EditApplication = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isLoading: authLoading } = useAuth();
   const { setLoading, setMessage } = useLoading();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
@@ -143,15 +143,20 @@ const EditApplication = () => {
   });
 
   const formValues = form.watch();
-  const { saveStatus, isSavingAutosave, isOnline } = useAutoSave(
-    user?.id || '',
-    id || '',
-    formValues,
-    900,
-    !isLoading && application && (application.status === 'draft' || application.status === 'pending')
-  );
+  const { saveStatus, isOnline, forceSave } = useAutoSave({
+    userId: user?.id || '',
+    applicationId: id || '',
+    formData: formValues,
+    debounceMs: 900,
+    enabled: !isLoading && application && (application.status === 'draft' || application.status === 'pending')
+  });
 
   useEffect(() => {
+    // Wait for auth to load
+    if (authLoading) {
+      return;
+    }
+
     if (!user) {
       navigate('/auth');
       return;
@@ -164,7 +169,7 @@ const EditApplication = () => {
     }
 
     loadApplication();
-  }, [user, id, navigate]);
+  }, [user, id, navigate, authLoading]);
 
   const loadApplication = async () => {
     setMessage('Loading your application...');
@@ -206,14 +211,14 @@ const EditApplication = () => {
         department: data.department || '',
         year_of_study: data.year_of_study || 1,
         subjects_completed: Array.isArray(data.subjects_completed) ? data.subjects_completed.join(', ') : (data.subjects_completed || ''),
-        subjects_to_tutor: Array.isArray(data.subjects_to_tutor) ? data.subjects_to_tutor.join(', ') : (data.subjects_to_tutor || ''),
+        subjects_to_tutor: (Array.isArray(data.subjects_to_tutor) ? data.subjects_to_tutor.join(', ') : (data.subjects_to_tutor || '')) as any,
         previous_tutoring_experience: data.previous_tutoring_experience || '',
         work_experience: data.work_experience || '',
         skills_competencies: Array.isArray(data.skills_competencies) ? data.skills_competencies.join(', ') : (data.skills_competencies || ''),
         languages_spoken: Array.isArray(data.languages_spoken) ? data.languages_spoken.join(', ') : (data.languages_spoken || ''),
         availability: typeof data.availability === 'object' && data.availability !== null && !Array.isArray(data.availability) ? ((data.availability as Record<string, unknown>)?.description as string || JSON.stringify(data.availability)) : String(data.availability || ''),
         motivation_letter: data.motivation_letter || '',
-      });
+      } as any);
 
       // Load documents
       const { data: docs, error: docsError } = await supabase
@@ -315,21 +320,17 @@ const EditApplication = () => {
         residential_address: formData.residential_address || '',
         contact_number: formData.contact_number || '',
         email: user?.email || '',
-        degree: formData.degree_program || '', // Map degree_program to degree
         degree_program: formData.degree_program || '',
         faculty: formData.faculty || '',
         department: formData.department || '',
         year_of_study: formData.year_of_study || 1,
-        subjects: (formData.subjects_completed || '') + (formData.subjects_to_tutor ? ', ' + formData.subjects_to_tutor : ''), // Combine as text
         subjects_completed: formData.subjects_completed || '',
         subjects_to_tutor: formData.subjects_to_tutor || '',
-        experience: (formData.previous_tutoring_experience || '') + (formData.work_experience ? ', ' + formData.work_experience : ''), // Combine experience
         previous_tutoring_experience: formData.previous_tutoring_experience || null,
         work_experience: formData.work_experience || null,
         skills_competencies: formData.skills_competencies || '',
         languages_spoken: formData.languages_spoken || '',
         availability: formData.availability || '',
-        motivation: formData.motivation_letter || '', // Map motivation_letter to motivation
         motivation_letter: formData.motivation_letter || '',
         status: 'draft' as const,
         updated_at: new Date().toISOString(),
@@ -339,7 +340,7 @@ const EditApplication = () => {
 
       const { error } = await supabase
         .from('tutor_applications')
-        .update(applicationData)
+        .update(applicationData as any)
         .eq('id', application.id)
         .eq('user_id', user.id);
 
@@ -365,6 +366,15 @@ const EditApplication = () => {
       setLoading(false);
       setMessage('Loading...');
     }
+  };
+
+  const handleSignOut = async () => {
+    // Force save before signing out
+    if (forceSave && id) {
+      await forceSave();
+    }
+    await signOut();
+    navigate('/auth');
   };
 
   const handleFileUpload = async (documentType: string, file: File) => {
@@ -475,37 +485,37 @@ const EditApplication = () => {
     setMessage('Submitting your application...');
     setLoading(true);
     try {
+      const updateData = {
+        full_name: data.full_name,
+        student_number: data.student_number,
+        date_of_birth: data.date_of_birth,
+        gender: data.gender || null,
+        nationality: data.nationality,
+        residential_address: data.residential_address,
+        contact_number: data.contact_number,
+        email: user?.email || '',
+        degree: data.degree_program, // Map degree_program to degree
+        degree_program: data.degree_program,
+        faculty: data.faculty,
+        department: data.department,
+        year_of_study: data.year_of_study,
+        subjects_completed: Array.isArray(data.subjects_completed) ? data.subjects_completed.join(', ') : (data.subjects_completed || ''),
+        subjects_to_tutor: Array.isArray(data.subjects_to_tutor) ? data.subjects_to_tutor.join(', ') : (data.subjects_to_tutor || ''),
+        previous_tutoring_experience: data.previous_tutoring_experience || null,
+        work_experience: data.work_experience || null,
+        skills_competencies: Array.isArray(data.skills_competencies) ? data.skills_competencies.join(', ') : (data.skills_competencies || ''),
+        languages_spoken: Array.isArray(data.languages_spoken) ? data.languages_spoken.join(', ') : (data.languages_spoken || ''),
+        availability: data.availability,
+        motivation: data.motivation_letter, // Map motivation_letter to motivation
+        motivation_letter: data.motivation_letter,
+        status: 'pending',
+        submitted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as any;
+
       const { error } = await supabase
         .from('tutor_applications')
-        .update({
-          full_name: data.full_name,
-          student_number: data.student_number,
-          date_of_birth: data.date_of_birth,
-          gender: data.gender || null,
-          nationality: data.nationality,
-          residential_address: data.residential_address,
-          contact_number: data.contact_number,
-          email: user?.email || '',
-          degree: data.degree_program, // Map degree_program to degree
-          degree_program: data.degree_program,
-          faculty: data.faculty,
-          department: data.department,
-          year_of_study: data.year_of_study,
-          subjects: (data.subjects_completed || '') + (data.subjects_to_tutor ? ', ' + data.subjects_to_tutor : ''), // Combine as text
-          subjects_completed: data.subjects_completed || '',
-          subjects_to_tutor: data.subjects_to_tutor || '',
-          experience: (data.previous_tutoring_experience || '') + (data.work_experience ? ', ' + data.work_experience : ''), // Combine as text
-          previous_tutoring_experience: data.previous_tutoring_experience || null,
-          work_experience: data.work_experience || null,
-          skills_competencies: data.skills_competencies || '',
-          languages_spoken: data.languages_spoken || '',
-          availability: data.availability,
-          motivation: data.motivation_letter, // Map motivation_letter to motivation
-          motivation_letter: data.motivation_letter,
-          status: 'pending',
-          submitted_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', application.id);
 
       // Also update student_number in profiles table
@@ -561,12 +571,12 @@ const EditApplication = () => {
       <header className="bg-sidebar text-sidebar-foreground sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <UFHLogo className="w-8 h-8" />
+            <UFHLogo className="w-12 h-12" />
             <span className="font-bold text-xl">UFH Tutors</span>
           </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm">Welcome, {user?.user_metadata?.full_name}</span>
-            <Button variant="ghost" size="sm" onClick={signOut}>
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out
             </Button>
@@ -580,7 +590,7 @@ const EditApplication = () => {
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-xl font-semibold">Edit Application</h1>
             <div className="flex items-center gap-4">
-              <SaveStatusIndicator status={saveStatus} message={saveStatus === 'saved' ? 'All changes saved' : saveStatus === 'saving' ? 'Saving...' : saveStatus === 'error' ? 'Failed to save' : saveStatus === 'offline' ? 'Offline – changes not saved' : ''} />
+              <SaveStatusIndicator status={saveStatus.status} message={saveStatus.message} />
               <Badge variant="outline">Step {currentStep} of 5</Badge>
             </div>
           </div>

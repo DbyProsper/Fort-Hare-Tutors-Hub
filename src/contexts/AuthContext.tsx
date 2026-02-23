@@ -97,8 +97,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const extractStudentNumber = (email: string): string | null => {
+    // Extract student number from UFH email format: 201150237@ufh.ac.za
+    const match = email.match(/^(\d+)@ufh\.ac\.za$/);
+    return match ? match[1] : null;
+  };
+
   const ensureProfileExists = async (userId: string, email: string, fullName: string) => {
     try {
+      // Extract student number from email
+      const studentNumber = extractStudentNumber(email);
+
       // Check if profile already exists
       const { data: existingProfile, error: checkError } = await supabase
         .from('profiles')
@@ -120,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             id: userId,
             email: email,
             full_name: fullName,
+            student_number: studentNumber,
           });
 
         if (insertError) {

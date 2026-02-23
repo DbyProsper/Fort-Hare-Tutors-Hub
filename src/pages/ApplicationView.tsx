@@ -17,6 +17,7 @@ import {
   AlertCircle,
   XCircle
 } from 'lucide-react';
+import { UFHLogo } from '@/components/UFHLogo';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -244,7 +245,7 @@ const ApplicationView = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={{ width: '40px', height: '40px', backgroundColor: '#3b82f6', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ color: 'white', fontSize: '1.25rem', fontWeight: 'bold' }}>🎓</span>
+                <UFHLogo style={{ width: '50px', height: '50px' }} />
               </div>
               <div>
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1f2937' }}>UFH Tutors</h1>
