@@ -11,7 +11,8 @@ BEGIN
             'ACCEPTED_AWAITING_UPLOAD',
             'SIGNED_UPLOADED',
             'RESUBMISSION_REQUIRED',
-            'VERIFIED'
+            'VERIFIED',
+            'HR_SUBMITTED'
         );
     END IF;
 END$$;
@@ -23,7 +24,8 @@ ALTER TABLE IF EXISTS tutor_applications
     ADD COLUMN IF NOT EXISTS document_rejection_reason text,
     ADD COLUMN IF NOT EXISTS document_rejected_at timestamp,
     ADD COLUMN IF NOT EXISTS resubmission_count integer DEFAULT 0,
-    ADD COLUMN IF NOT EXISTS last_resubmitted_at timestamp;
+    ADD COLUMN IF NOT EXISTS last_resubmitted_at timestamp,
+    ADD COLUMN IF NOT EXISTS hr_submitted_at timestamp;
 
 -- 3. Create a reminder queue table (workers can poll this to send emails)
 CREATE TABLE IF NOT EXISTS offer_reminder_queue (

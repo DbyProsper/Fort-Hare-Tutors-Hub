@@ -20,7 +20,8 @@ import {
   FileText,
   AlertCircle,
   ChevronRight,
-  Download
+  Download,
+  Upload
 } from 'lucide-react';
 import { UFHLogo } from '@/components/UFHLogo';
 import { useAuth } from '@/contexts/AuthContext';
@@ -95,6 +96,10 @@ const Admin = () => {
   const [isOfferRejecting, setIsOfferRejecting] = useState(false);
   const [offerRejectionReason, setOfferRejectionReason] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isUploadingTemplates, setIsUploadingTemplates] = useState(false);
+  const [personalFormFile, setPersonalFormFile] = useState<File | null>(null);
+  const [affidavitFile, setAffidavitFile] = useState<File | null>(null);
+  const [isForwardingToHR, setIsForwardingToHR] = useState(false);
 
   useEffect(() => {
     if (!authLoading && isAdmin !== null) {
@@ -167,19 +172,6 @@ const Admin = () => {
     try {
       // Call an Edge Function (implement server-side) to send email with attachments
       // Function name: send_offer_email
-      try {
-        // Attempt to invoke Supabase Edge Function if present
-        // @ts-ignore
-        if (supabase.functions && typeof supabase.functions.invoke === 'function') {
-          await supabase.functions.invoke('send_offer_email', {
-            body: JSON.stringify({ application_id: applicationId })
-          });
-        }
-      } catch (err) {
-        // Non-fatal - fallback to enqueue or just update DB
-        logger.warn('send_offer_email function not available or failed:', err);
-      }
-
       const { error } = await supabase
         .from('tutor_applications')
         .update({ offer_status: 'SENT', offer_sent_at: new Date().toISOString() } as any)
@@ -187,7 +179,7 @@ const Admin = () => {
 
       if (error) throw error;
 
-      toast.success('Offer sent');
+      toast.success('Offer documents sent - tutor can now download and sign from their dashboard');
       await fetchApplications();
     } catch (error) {
       logger.error('Error sending offer:', error);
@@ -244,6 +236,93 @@ const Admin = () => {
       toast.error('Failed to reject documents');
     } finally {
       setIsUpdating(false);
+      setLoading(false);
+      setMessage('Loading...');
+    }
+  };
+
+  const uploadTemplates = async () => {
+    if (!personalFormFile && !affidavitFile) {
+      toast.error('Please select at least one PDF to upload');
+      return;
+    }
+
+    setIsUploadingTemplates(true);
+    setMessage('Uploading offer templates...');
+    setLoading(true);
+
+    try {
+      const errors: string[] = [];
+
+      // Upload personal form if selected
+      if (personalFormFile) {
+        if (personalFormFile.type !== 'application/pdf') {
+          errors.push('Personal Info Form must be a PDF');
+        } else {
+          try {
+            const { error: uploadErr } = await supabase.storage
+              .from('offer-templates')
+              .upload('tutor_personal_form.pdf', personalFormFile, { contentType: 'application/pdf', upsert: true });
+            if (uploadErr) throw uploadErr;
+            toast.success('Personal Info Form uploaded');
+          } catch (err: any) {
+            errors.push(`Personal form upload failed: ${err.message}`);
+          }
+        }
+      }
+
+      // Upload affidavit if selected
+      if (affidavitFile) {
+        if (affidavitFile.type !== 'application/pdf') {
+          errors.push('Affidavit must be a PDF');
+        } else {
+          try {
+            const { error: uploadErr } = await supabase.storage
+              .from('offer-templates')
+              .upload('offer_affidavit.pdf', affidavitFile, { contentType: 'application/pdf', upsert: true });
+            if (uploadErr) throw uploadErr;
+            toast.success('Affidavit uploaded');
+          } catch (err: any) {
+            errors.push(`Affidavit upload failed: ${err.message}`);
+          }
+        }
+      }
+
+      if (errors.length === 0) {
+        toast.success('All templates uploaded successfully');
+        setPersonalFormFile(null);
+        setAffidavitFile(null);
+      } else {
+        errors.forEach(err => toast.error(err));
+      }
+    } catch (err) {
+      logger.error('Error uploading templates:', err);
+      toast.error('Failed to upload templates');
+    } finally {
+      setIsUploadingTemplates(false);
+      setLoading(false);
+      setMessage('Loading...');
+    }
+  };
+
+  const handleForwardToHR = async (applicationId: string) => {
+    setIsForwardingToHR(true);
+    setMessage('Forwarding to HR...');
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('tutor_applications')
+        .update({ offer_status: 'HR_SUBMITTED', hr_submitted_at: new Date().toISOString() } as any)
+        .eq('id', applicationId);
+      if (error) throw error;
+      toast.success('Documents forwarded to HR successfully');
+      await fetchApplications();
+      setIsDialogOpen(false);
+    } catch (err) {
+      logger.error('Error forwarding to HR:', err);
+      toast.error('Failed to forward documents to HR');
+    } finally {
+      setIsForwardingToHR(false);
       setLoading(false);
       setMessage('Loading...');
     }
@@ -490,6 +569,99 @@ const Admin = () => {
           </CardContent>
         </Card>
 
+        {/* Offer Templates Upload */}
+        <Card className="border-0 shadow-md mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="w-5 h-5" />
+              Offer Templates
+            </CardTitle>
+            <CardDescription>
+              Upload or update the PDF templates that will be sent to approved applicants
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Tutor Personal Info Form */}
+              <div className="space-y-3">
+                <div>
+                  <h3 className="font-semibold text-sm mb-2">Tutor Personal Information Form</h3>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    File must be named: <code className="bg-muted px-1 py-0.5 rounded">tutor_personal_form.pdf</code>
+                  </p>
+                </div>
+                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center">
+                  <Input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => setPersonalFormFile(e.target.files?.[0] || null)}
+                    disabled={isUploadingTemplates}
+                    className="cursor-pointer"
+                  />
+                  {personalFormFile && (
+                    <p className="text-xs text-green-600 mt-2">
+                      ✓ Selected: {personalFormFile.name}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Offer Affidavit */}
+              <div className="space-y-3">
+                <div>
+                  <h3 className="font-semibold text-sm mb-2">Offer Acceptance Affidavit</h3>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    File must be named: <code className="bg-muted px-1 py-0.5 rounded">offer_affidavit.pdf</code>
+                  </p>
+                </div>
+                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center">
+                  <Input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => setAffidavitFile(e.target.files?.[0] || null)}
+                    disabled={isUploadingTemplates}
+                    className="cursor-pointer"
+                  />
+                  {affidavitFile && (
+                    <p className="text-xs text-green-600 mt-2">
+                      ✓ Selected: {affidavitFile.name}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
+              <p className="font-semibold mb-1">How this works:</p>
+              <ul className="text-xs space-y-1 ml-4 list-disc">
+                <li>Upload the templates here first</li>
+                <li>Select approved applicants and click "Send Offer"</li>
+                <li>Applicants will receive emails with PDF attachments</li>
+                <li>They'll print, sign (with Commissioner of Oaths), and upload back</li>
+                <li>You'll approve documents and forward to HR</li>
+              </ul>
+            </div>
+
+            <Button
+              onClick={uploadTemplates}
+              disabled={isUploadingTemplates || (!personalFormFile && !affidavitFile)}
+              className="w-full"
+            >
+              {isUploadingTemplates ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Templates
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Applications List */}
         <Card className="border-0 shadow-lg">
           <CardHeader>
@@ -694,21 +866,34 @@ const Admin = () => {
                           </div>
                         ))}
                       </div>
-                      <div className="flex items-center gap-2 mt-3">
-                        <Button onClick={() => approveOfferDocuments(selectedApplication!.id)} disabled={isUpdating}>
-                          {isUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                          Approve Documents
-                        </Button>
-                        {!isOfferRejecting ? (
-                          <Button variant="destructive" onClick={() => setIsOfferRejecting(true)}>Reject Documents</Button>
+                      <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        {selectedApplication.offer_status === 'VERIFIED' ? (
+                          <Button 
+                            onClick={() => handleForwardToHR(selectedApplication!.id)} 
+                            disabled={isForwardingToHR}
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            {isForwardingToHR ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                            Forward to HR
+                          </Button>
                         ) : (
-                          <div className="flex-1">
-                            <Textarea placeholder="Reason for rejection" value={offerRejectionReason} onChange={(e) => setOfferRejectionReason(e.target.value)} />
-                            <div className="flex gap-2 mt-2">
-                              <Button variant="outline" onClick={() => { setIsOfferRejecting(false); setOfferRejectionReason(''); }}>Cancel</Button>
-                              <Button variant="destructive" onClick={() => rejectOfferDocuments(selectedApplication!.id, offerRejectionReason)} disabled={!offerRejectionReason.trim() || isUpdating}>Confirm Reject</Button>
-                            </div>
-                          </div>
+                          <>
+                            <Button onClick={() => approveOfferDocuments(selectedApplication!.id)} disabled={isUpdating}>
+                              {isUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                              Approve Documents
+                            </Button>
+                            {!isOfferRejecting ? (
+                              <Button variant="destructive" onClick={() => setIsOfferRejecting(true)}>Reject Documents</Button>
+                            ) : (
+                              <div className="flex-1 flex gap-2">
+                                <Textarea placeholder="Reason for rejection" value={offerRejectionReason} onChange={(e) => setOfferRejectionReason(e.target.value)} />
+                                <div className="flex gap-2 mt-2">
+                                  <Button variant="outline" onClick={() => { setIsOfferRejecting(false); setOfferRejectionReason(''); }}>Cancel</Button>
+                                  <Button variant="destructive" onClick={() => rejectOfferDocuments(selectedApplication!.id, offerRejectionReason)} disabled={!offerRejectionReason.trim() || isUpdating}>Confirm Reject</Button>
+                                </div>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>

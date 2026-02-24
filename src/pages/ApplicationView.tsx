@@ -15,7 +15,8 @@ import {
   LogOut,
   Clock,
   AlertCircle,
-  XCircle
+  XCircle,
+  Download
 } from 'lucide-react';
 import { UFHLogo } from '@/components/UFHLogo';
 import { useAuth } from '@/contexts/AuthContext';
@@ -176,6 +177,30 @@ const ApplicationView = () => {
     }
   };
 
+  const downloadTemplateFile = async (fileName: 'tutor_personal_form.pdf' | 'offer_affidavit.pdf', displayName: string) => {
+    try {
+      setLoading(true);
+      setMessage(`Downloading ${displayName}...`);
+      const { data, error } = await supabase.storage.from('offer-templates').download(fileName);
+      if (error) throw error;
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Downloaded ${displayName}`);
+    } catch (err) {
+      logger.error(`Error downloading ${fileName}:`, err);
+      toast.error(`Failed to download ${displayName}`);
+    } finally {
+      setLoading(false);
+      setMessage('Loading...');
+    }
+  };
+
   useEffect(() => {
     logger.log('useEffect triggered');
     if (!user || !id) return;
@@ -280,6 +305,46 @@ const ApplicationView = () => {
                   <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
                     Download the two forms, print and sign them before uploading signed copies: the Tutor Personal Information Form and the Student Tutor/Assistance Acceptance of Post Form/Affidavit.
                   </p>
+                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <button
+                      onClick={() => downloadTemplateFile('tutor_personal_form.pdf', 'Tutor Personal Information Form')}
+                      style={{
+                        padding: '0.75rem 1rem',
+                        backgroundColor: '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '0.375rem',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                      }}
+                    >
+                      <Download size={16} />
+                      Download Personal Form
+                    </button>
+                    <button
+                      onClick={() => downloadTemplateFile('offer_affidavit.pdf', 'Offer Acceptance Affidavit')}
+                      style={{
+                        padding: '0.75rem 1rem',
+                        backgroundColor: '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '0.375rem',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                      }}
+                    >
+                      <Download size={16} />
+                      Download Affidavit
+                    </button>
+                  </div>
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
                     <div style={{ flex: 1 }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Signed Acceptance Affidavit (PDF)</label>
