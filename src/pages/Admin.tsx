@@ -201,6 +201,38 @@ const Admin = () => {
     setIsDialogOpen(true);
   };
 
+  const withdrawOffer = async (applicationId: string) => {
+    setIsUpdating(true);
+    setMessage('Withdrawing offer...');
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('tutor_applications')
+        .update({ offer_status: 'WITHDRAWN', offer_withdrawn_at: new Date().toISOString() } as any)
+        .eq('id', applicationId);
+      if (error) throw error;
+
+      await createAuditLog(
+        applicationId,
+        user?.id || '',
+        user?.email || 'Unknown Admin',
+        'OFFER_BULK_SENT',
+        'Offer withdrawn by admin'
+      );
+
+      toast.success('Offer withdrawn successfully');
+      await fetchApplications();
+      setIsDialogOpen(false);
+    } catch (err) {
+      logger.error('Error withdrawing offer:', err);
+      toast.error('Failed to withdraw offer');
+    } finally {
+      setIsUpdating(false);
+      setLoading(false);
+      setMessage('Loading...');
+    }
+  };
+
   const sendOffer = async (applicationId: string) => {
     setIsSendingOffer(true);
     setMessage('Sending offer...');
@@ -280,7 +312,7 @@ const Admin = () => {
     try {
       const { error } = await supabase
         .from('tutor_applications')
-        .update({ offer_status: 'RESUBMISSION_REQUIRED', document_rejection_reason: reason, document_rejected_at: new Date().toISOString() } as any)
+        .update({ offer_status: 'WITHDRAWN', document_rejection_reason: reason, document_rejected_at: new Date().toISOString() } as any)
         .eq('id', applicationId);
       if (error) throw error;
 
@@ -517,6 +549,20 @@ const Admin = () => {
           ? { ...app, status: newStatus, rejection_reason: newStatus === 'rejected' ? rejectionReason : app.rejection_reason }
           : app
       ));
+      // Create audit log for status change
+      if (newStatus === 'approved') {
+        await createAuditLog(selectedApplication.id, user?.id || '', user?.email || 'Unknown Admin', 'APPLICATION_APPROVED', 'Application approved by admin');
+      } else if (newStatus === 'rejected') {
+        // withdraw offer if any
+        try {
+          await supabase.from('tutor_applications').update({ offer_status: 'WITHDRAWN', offer_withdrawn_at: new Date().toISOString() }).eq('id', selectedApplication.id);
+        } catch (err) {
+          logger.error('Error withdrawing offer on rejection:', err);
+        }
+        await createAuditLog(selectedApplication.id, user?.id || '', user?.email || 'Unknown Admin', 'APPLICATION_REJECTED', `Application rejected: ${rejectionReason}`);
+      } else {
+        await createAuditLog(selectedApplication.id, user?.id || '', user?.email || 'Unknown Admin', 'APPLICATION_APPROVED', `Status changed to ${newStatus}`);
+      }
       
       setIsDialogOpen(false);
       setIsRejecting(false);
@@ -602,10 +648,18 @@ const Admin = () => {
               <p className="text-xs text-sidebar-foreground/70">Admin Dashboard</p>
             </div>
           </Link>
-          <Button variant="ghost" onClick={handleSignOut} className="gap-2 text-sidebar-foreground hover:bg-sidebar-accent">
-            <LogOut className="w-4 h-4" />
-            Sign Out
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link to="/admin/documents">
+              <Button variant="ghost" className="gap-2 text-sidebar-foreground hover:bg-sidebar-accent">
+                <FileArchive className="w-4 h-4" />
+                Offer Documents
+              </Button>
+            </Link>
+            <Button variant="ghost" onClick={handleSignOut} className="gap-2 text-sidebar-foreground hover:bg-sidebar-accent">
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -919,6 +973,23 @@ const Admin = () => {
                   </div>
                 </div>
 
+                {/* Centralized rejection panel visible across tabs */}
+                {isRejecting && (
+                  <div className="p-4 mb-4 border rounded bg-destructive/5">
+                    <h4 className="font-semibold mb-2 text-destructive">Rejection Reason</h4>
+                    <Textarea
+                      placeholder="Please provide a reason for rejection. This will be visible to the applicant."
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      className="min-h-[100px] mb-3"
+                    />
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => { setIsRejecting(false); setRejectionReason(''); }}>Cancel</Button>
+                      <Button variant="destructive" onClick={() => handleUpdateStatus('rejected')} disabled={!rejectionReason.trim() || isUpdating}>Confirm Rejection</Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Details Tab */}
                 {activeTab === 'details' && (
                 <div className="space-y-6 py-4">
@@ -1081,18 +1152,7 @@ const Admin = () => {
                     )}
                   </div>
 
-                  {/* Rejection Reason Input */}
-                  {isRejecting && (
-                    <div>
-                      <h4 className="font-semibold mb-3 text-destructive">Rejection Reason</h4>
-                      <Textarea
-                        placeholder="Please provide a reason for rejection. This will be visible to the applicant."
-                        value={rejectionReason}
-                        onChange={(e) => setRejectionReason(e.target.value)}
-                        className="min-h-[100px]"
-                      />
-                    </div>
-                  )}
+                  
 
                   {/* HR Document Pack Section */}
                   {selectedApplication.offer_status === 'VERIFIED' && (
@@ -1196,6 +1256,12 @@ const Admin = () => {
                         disabled={isUpdating}
                       >
                         Mark as Under Review
+                      </Button>
+                    )}
+                    {/* Withdraw offer if it was sent */}
+                    {selectedApplication.offer_status === 'SENT' && (
+                      <Button variant="destructive" onClick={() => { if (confirm('Withdraw the offer for this applicant?')) withdrawOffer(selectedApplication.id); }} disabled={isUpdating}>
+                        Withdraw Offer
                       </Button>
                     )}
                   </>

@@ -14,6 +14,7 @@ import Apply from "./pages/Apply";
 import EditApplication from "./pages/EditApplication";
 import ApplicationView from "./pages/ApplicationView";
 import Admin from "./pages/Admin";
+import AdminDocuments from "./pages/AdminDocuments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
               <Route path="/application/:id/edit" element={<EditApplication />} />
               <Route path="/application/:id" element={<ApplicationView />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/admin/documents" element={<AdminDocuments />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

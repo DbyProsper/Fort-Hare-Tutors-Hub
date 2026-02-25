@@ -347,9 +347,11 @@ const ApplicationView = () => {
                       <p style={{ color: '#92400e' }}>Please correct and re-upload the signed documents.</p>
                     </div>
                   )}
-                  <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
-                    Download the two forms, print and sign them before uploading signed copies: the Tutor Personal Information Form and the Student Tutor/Assistance Acceptance of Post Form/Affidavit.
-                  </p>
+                  <div style={{ backgroundColor: '#f0f4ff', border: '1px solid #d0d9ff', borderRadius: '0.5rem', padding: '1rem', marginBottom: '1.5rem' }}>
+                    <p style={{ color: '#1f2937', fontWeight: '500', marginBottom: '0.5rem' }}>📋 Upload Documents to Admin</p>
+                    <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.5rem' }}>You can now upload all required documents here. Each document will be sent directly to the admin for verification.</p>
+                    <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Additionally, you must download, print, and sign the two forms below, then upload the signed versions.</p>
+                  </div>
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                     <button
                       onClick={() => downloadTemplateFile('tutor_personal_form.pdf', 'Tutor Personal Information Form')}
@@ -398,14 +400,42 @@ const ApplicationView = () => {
                       Download Affidavit
                     </button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Signed Acceptance Affidavit (PDF)</label>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferAffidavitFile(e.target.files?.[0] || null)} style={{ width: '100%' }} />
+                  <h4 style={{ fontWeight: '600', fontSize: '1rem', color: '#1f2937', marginBottom: '1rem' }}>Upload All Required Documents</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>✓ Signed Acceptance Affidavit</label>
+                      <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Signed & notarized</p>
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Signed Personal Info Form (PDF)</label>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferPersonalFormFile(e.target.files?.[0] || null)} style={{ width: '100%' }} />
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>✓ Signed Personal Info Form</label>
+                      <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Signed & notarized</p>
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                    </div>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>Certified ID / Passport / Study Permit</label>
+                      <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Certified copy (within 3 months)</p>
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                    </div>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>Academic Transcript</label>
+                      <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Official UFH transcript</p>
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                    </div>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>CV / Resume</label>
+                      <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>PDF preferred</p>
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                    </div>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>Proof of Registration</label>
+                      <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Current year registration</p>
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                    </div>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>3 Months Bank Statement</label>
+                      <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Recent bank statement stamped</p>
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -468,7 +498,7 @@ const ApplicationView = () => {
                       }}
                       style={{ backgroundColor: '#003A8F', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 'none', boxShadow: '0 6px 18px rgba(0,58,143,0.12)', transition: 'transform 0.12s ease' }}
                     >
-                      {isUploadingOfferDocs ? 'Uploading...' : 'Upload Signed Documents'}
+                      {isUploadingOfferDocs ? (offerAffidavitFile && offerPersonalFormFile ? 'Uploading all documents...' : 'Uploading...') : (offerAffidavitFile && offerPersonalFormFile ? 'Upload All Documents' : 'Upload Signed Documents')}
                     </button>
                   </div>
                 </div>
@@ -680,7 +710,7 @@ const ApplicationView = () => {
           <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <div style={{ padding: '1.5rem' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem' }}>Application Timeline</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', borderRadius: '12px', padding: '1.5rem', backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
                   <div style={{ width: '12px', height: '12px', backgroundColor: '#10b981', borderRadius: '50%' }}></div>
                   <div>
@@ -697,7 +727,7 @@ const ApplicationView = () => {
                   </div>
                 </div>
                 {application.submitted_at && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', position: 'relative', zIndex: 1 }}>
                     <div style={{ width: '12px', height: '12px', backgroundColor: '#003A8F', borderRadius: '50%' }}></div>
                     <div>
                       <p style={{ fontWeight: '500', color: '#1f2937' }}>Application Submitted</p>
@@ -714,7 +744,7 @@ const ApplicationView = () => {
                   </div>
                 )}
                 {application.status === 'approved' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', position: 'relative', zIndex: 1 }}>
                     <div style={{ width: '12px', height: '12px', backgroundColor: '#10b981', borderRadius: '50%' }}></div>
                     <div>
                       <p style={{ fontWeight: '500', color: '#1f2937' }}>Application Approved</p>
@@ -723,7 +753,7 @@ const ApplicationView = () => {
                   </div>
                 )}
                 {application.status === 'rejected' && application.rejection_reason && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', position: 'relative', zIndex: 1 }}>
                     <div style={{ width: '12px', height: '12px', backgroundColor: '#dc2626', borderRadius: '50%' }}></div>
                     <div>
                       <p style={{ fontWeight: '500', color: '#1f2937' }}>Application Rejected</p>
