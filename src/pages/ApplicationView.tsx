@@ -295,7 +295,7 @@ const ApplicationView = () => {
             {(application.offer_status === 'SENT' || application.offer_status === 'RESUBMISSION_REQUIRED') && (
               <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem', overflow: 'hidden' }}>
                 <div style={{ 
-                  backgroundImage: 'url("https://images.unsplash.com/photo-1507842217343-583b8d3b6cbe?w=1200&h=300&fit=crop&crop=entropy&q=80")',
+                  backgroundImage: 'url("/still-life-books-versus-technology.jpg")',
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   padding: '2rem',
@@ -304,8 +304,10 @@ const ApplicationView = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  '::before': {
-                    content: '""',
+                  overflow: 'hidden'
+                }} className="relative">
+                  {/* Dark overlay */}
+                  <div style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
@@ -313,8 +315,7 @@ const ApplicationView = () => {
                     bottom: 0,
                     backgroundColor: 'rgba(0, 0, 0, 0.4)',
                     zIndex: 1
-                  }
-                }} className="relative">
+                  }} />
                   <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', color: 'white' }}>
                     <h2 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Offer Acceptance Documents</h2>
                     <p style={{ fontSize: '1rem', opacity: 0.9 }}>Download, sign, and submit your documents below</p>
