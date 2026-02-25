@@ -35,7 +35,7 @@ interface UploadedDocument {
 }
 
 const REQUIRED_DOCUMENTS = [
-  { type: 'certified_id', label: 'Certified ID Copy', description: 'Must be certified within the last 3 months' },
+  { type: 'certified_id', label: 'Certified ID Copy / Passport / Study Permit', description: 'Must be certified within 3 months (Passport/Study Permit for international students)' },
   { type: 'academic_transcript', label: 'Academic Transcript', description: 'Official UFH transcript' },
   { type: 'cv', label: 'CV / Resume', description: 'PDF format preferred' },
   { type: 'proof_of_registration', label: 'Proof of Registration', description: 'Current year registration' },
@@ -293,9 +293,34 @@ const ApplicationView = () => {
         </div>
             {/* Offer Documents (Applicant Upload / Instructions) */}
             {(application.offer_status === 'SENT' || application.offer_status === 'RESUBMISSION_REQUIRED') && (
-              <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
+              <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem', overflow: 'hidden' }}>
+                <div style={{ 
+                  backgroundImage: 'url("https://images.unsplash.com/photo-1507842217343-583b8d3b6cbe?w=1200&h=300&fit=crop&crop=entropy&q=80")',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  padding: '2rem',
+                  position: 'relative',
+                  minHeight: '200px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  '::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                    zIndex: 1
+                  }
+                }} className="relative">
+                  <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', color: 'white' }}>
+                    <h2 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Offer Acceptance Documents</h2>
+                    <p style={{ fontSize: '1rem', opacity: 0.9 }}>Download, sign, and submit your documents below</p>
+                  </div>
+                </div>
                 <div style={{ padding: '1.5rem' }}>
-                  <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem' }}>Offer Acceptance Documents</h2>
                   {application.offer_status === 'RESUBMISSION_REQUIRED' && (
                     <div style={{ marginBottom: '1rem', padding: '0.75rem', border: '1px solid #fde68a', borderRadius: '0.375rem' }}>
                       <p style={{ color: '#92400e' }}>Your documents were rejected: {application.document_rejection_reason}</p>
@@ -305,7 +330,7 @@ const ApplicationView = () => {
                   <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
                     Download the two forms, print and sign them before uploading signed copies: the Tutor Personal Information Form and the Student Tutor/Assistance Acceptance of Post Form/Affidavit.
                   </p>
-                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                     <button
                       onClick={() => downloadTemplateFile('tutor_personal_form.pdf', 'Tutor Personal Information Form')}
                       style={{
@@ -319,7 +344,10 @@ const ApplicationView = () => {
                         fontWeight: '500',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '0.5rem'
+                        gap: '0.5rem',
+                        flex: '1 1 auto',
+                        minWidth: '150px',
+                        justifyContent: 'center'
                       }}
                     >
                       <Download size={16} />
@@ -338,21 +366,24 @@ const ApplicationView = () => {
                         fontWeight: '500',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '0.5rem'
+                        gap: '0.5rem',
+                        flex: '1 1 auto',
+                        minWidth: '150px',
+                        justifyContent: 'center'
                       }}
                     >
                       <Download size={16} />
                       Download Affidavit
                     </button>
                   </div>
-                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
                     <div style={{ flex: 1 }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Signed Acceptance Affidavit (PDF)</label>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferAffidavitFile(e.target.files?.[0] || null)} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferAffidavitFile(e.target.files?.[0] || null)} style={{ width: '100%' }} />
                     </div>
                     <div style={{ flex: 1 }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Signed Personal Info Form (PDF)</label>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferPersonalFormFile(e.target.files?.[0] || null)} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferPersonalFormFile(e.target.files?.[0] || null)} style={{ width: '100%' }} />
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
