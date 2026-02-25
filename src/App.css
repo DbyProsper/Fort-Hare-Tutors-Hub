@@ -40,3 +40,18 @@
 .read-the-docs {
   color: #888;
 }
+
+/* UFH focus styles */
+input:focus, button:focus, select:focus, textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(0,58,143,0.12);
+  border-color: #003A8F;
+}
+
+/* Small utility styles for UFH branding */
+.ufh-divider { height: 1px; background: #e5e7eb; position: relative; }
+.ufh-divider .dot { width: 12px; height: 12px; background: #FDB913; border-radius: 50%; position: absolute; left: 50%; transform: translateX(-50%); top: -6px; }
+
+.ufh-btn { background-color: #003A8F; color: white; border-radius: 6px; padding: 0.5rem 1rem; box-shadow: 0 6px 18px rgba(0,58,143,0.08); }
+
+.ufh-left-highlight { border-left: 4px solid #003A8F; padding-left: 0.75rem; }

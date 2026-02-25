@@ -266,13 +266,13 @@ const ApplicationView = () => {
   const currentStatus = statusConfig[application.status as keyof typeof statusConfig] || statusConfig.draft;
 
   return (
-    <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, sans-serif', backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(0,58,143,0.05) 0%, transparent 50%)', backgroundAttachment: 'fixed' }}>
       {/* Header */}
-      <header style={{ backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+      <header style={{ backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderTop: '3px solid #003A8F' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ width: '40px', height: '40px', backgroundColor: '#3b82f6', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '40px', height: '40px', backgroundColor: '#003A8F', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,58,143,0.2)' }}>
                 <UFHLogo />
               </div>
               <div>
@@ -304,26 +304,45 @@ const ApplicationView = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  overflow: 'hidden'
-                }} className="relative">
-                  {/* Dark overlay */}
+                  overflow: 'hidden',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 30px rgba(0,58,143,0.15)',
+                  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                  cursor: 'pointer'
+                }} className="relative" onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.02)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 15px 40px rgba(0,58,143,0.25)'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 10px 30px rgba(0,58,143,0.15)'; }}>
+                  {/* Dark overlay with UFH gradient */}
                   <div style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                    background: 'linear-gradient(135deg, rgba(0,58,143,0.5) 0%, rgba(0,58,143,0.3) 100%), rgba(0, 0, 0, 0.3)',
                     zIndex: 1
                   }} />
+                  {/* UFH branded badge */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '1rem',
+                    right: '1rem',
+                    backgroundColor: '#FDB913',
+                    color: '#003A8F',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '20px',
+                    fontSize: '0.75rem',
+                    fontWeight: '700',
+                    zIndex: 2,
+                    letterSpacing: '0.5px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                  }}>Tutor Application</div>
                   <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', color: 'white' }}>
                     <h2 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Offer Acceptance Documents</h2>
-                    <p style={{ fontSize: '1rem', opacity: 0.9 }}>Download, sign, and submit your documents below</p>
+                    <p style={{ fontSize: '1rem', opacity: 0.95 }}>Download, sign, and submit your documents below</p>
                   </div>
                 </div>
                 <div style={{ padding: '1.5rem' }}>
                   {application.offer_status === 'RESUBMISSION_REQUIRED' && (
-                    <div style={{ marginBottom: '1rem', padding: '0.75rem', border: '1px solid #fde68a', borderRadius: '0.375rem' }}>
+                    <div style={{ marginBottom: '1rem', padding: '0.75rem', border: '1px solid #fde68a', borderRadius: '0.375rem', borderLeft: '4px solid #003A8F' }}>
                       <p style={{ color: '#92400e' }}>Your documents were rejected: {application.document_rejection_reason}</p>
                       <p style={{ color: '#92400e' }}>Please correct and re-upload the signed documents.</p>
                     </div>
@@ -336,7 +355,7 @@ const ApplicationView = () => {
                       onClick={() => downloadTemplateFile('tutor_personal_form.pdf', 'Tutor Personal Information Form')}
                       style={{
                         padding: '0.75rem 1rem',
-                        backgroundColor: '#10b981',
+                        backgroundColor: '#003A8F',
                         color: 'white',
                         border: 'none',
                         borderRadius: '0.375rem',
@@ -348,7 +367,8 @@ const ApplicationView = () => {
                         gap: '0.5rem',
                         flex: '1 1 auto',
                         minWidth: '150px',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        boxShadow: '0 6px 18px rgba(0,58,143,0.08)'
                       }}
                     >
                       <Download size={16} />
@@ -358,7 +378,7 @@ const ApplicationView = () => {
                       onClick={() => downloadTemplateFile('offer_affidavit.pdf', 'Offer Acceptance Affidavit')}
                       style={{
                         padding: '0.75rem 1rem',
-                        backgroundColor: '#10b981',
+                        backgroundColor: '#003A8F',
                         color: 'white',
                         border: 'none',
                         borderRadius: '0.375rem',
@@ -370,7 +390,8 @@ const ApplicationView = () => {
                         gap: '0.5rem',
                         flex: '1 1 auto',
                         minWidth: '150px',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        boxShadow: '0 6px 18px rgba(0,58,143,0.08)'
                       }}
                     >
                       <Download size={16} />
@@ -445,7 +466,7 @@ const ApplicationView = () => {
                           setMessage('Loading...');
                         }
                       }}
-                      style={{ backgroundColor: '#3b82f6', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 'none' }}
+                      style={{ backgroundColor: '#003A8F', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 'none', boxShadow: '0 6px 18px rgba(0,58,143,0.12)', transition: 'transform 0.12s ease' }}
                     >
                       {isUploadingOfferDocs ? 'Uploading...' : 'Upload Signed Documents'}
                     </button>
@@ -468,7 +489,7 @@ const ApplicationView = () => {
                 <p style={{ color: '#6b7280' }}>{currentStatus?.description}</p>
               </div>
             </div>
-            <div style={{ backgroundColor: '#dbeafe', color: '#1e40af', padding: '0.5rem 1rem', borderRadius: '0.375rem', fontWeight: '500' }}>
+            <div style={{ backgroundColor: 'rgba(253,185,19,0.18)', color: '#003A8F', padding: '0.5rem 1rem', borderRadius: '999px', fontWeight: '600', border: '1px solid rgba(253,185,19,0.25)' }}>
               {currentStatus?.label}
             </div>
           </div>
@@ -481,13 +502,13 @@ const ApplicationView = () => {
           {/* Back Button and Edit Button */}
           <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Link to="/dashboard">
-              <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'white', border: '1px solid #d1d5db', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: '#6b7280', textDecoration: 'none', cursor: 'pointer' }}>
+              <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'white', border: '2px solid #003A8F', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: '#003A8F', textDecoration: 'none', cursor: 'pointer', fontWeight: '600' }}>
                 ← Back to Dashboard
               </button>
             </Link>
             {(application.status === 'draft' || application.status === 'pending') && (
               <Link to={`/application/${id}/edit`}>
-                <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#3b82f6', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: 'white', textDecoration: 'none', cursor: 'pointer', fontWeight: '500' }}>
+                <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#003A8F', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: 'white', textDecoration: 'none', cursor: 'pointer', fontWeight: '600', boxShadow: '0 6px 18px rgba(0,58,143,0.12)', transition: 'transform 0.12s ease' }}>
                   ✏️ Edit Application
                 </button>
               </Link>
@@ -627,7 +648,7 @@ const ApplicationView = () => {
                       <div>
                         {uploaded ? (
                           <button 
-                            style={{ backgroundColor: '#3b82f6', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}
+                            style={{ backgroundColor: '#003A8F', color: 'white', padding: '0.5rem 1rem', border: 'none', borderRadius: '0.375rem', cursor: 'pointer', boxShadow: '0 6px 18px rgba(0,58,143,0.08)' }}
                             onClick={async () => {
                               try {
                                 const { data, error } = await supabase.storage
@@ -677,7 +698,7 @@ const ApplicationView = () => {
                 </div>
                 {application.submitted_at && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                    <div style={{ width: '12px', height: '12px', backgroundColor: '#3b82f6', borderRadius: '50%' }}></div>
+                    <div style={{ width: '12px', height: '12px', backgroundColor: '#003A8F', borderRadius: '50%' }}></div>
                     <div>
                       <p style={{ fontWeight: '500', color: '#1f2937' }}>Application Submitted</p>
                       <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>

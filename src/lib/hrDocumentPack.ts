@@ -110,8 +110,8 @@ export const generateCoverPagePDF = async (
     ctx.fillText('Tutor Appointment', canvas.width / 2, 150);
     ctx.fillText('Document Pack', canvas.width / 2, 220);
 
-    // Separator line
-    ctx.strokeStyle = '#3b82f6';
+    // Separator line (UFH Blue)
+    ctx.strokeStyle = '#003A8F';
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(100, 280);
