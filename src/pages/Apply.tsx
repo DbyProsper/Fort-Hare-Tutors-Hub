@@ -96,7 +96,7 @@ interface UploadedDocument {
 }
 
 const REQUIRED_DOCUMENTS = [
-  { type: 'certified_id', label: 'Certified ID Copy', description: 'Must be certified within the last 3 months' },
+  { type: 'certified_id', label: 'Certified ID Copy / Passport / Study Permit', description: 'Must be certified within 3 months (Passport/Study Permit for international students)' },
   { type: 'academic_transcript', label: 'Academic Transcript', description: 'Official UFH transcript' },
   { type: 'cv', label: 'CV / Resume', description: 'PDF format preferred' },
   { type: 'proof_of_registration', label: 'Proof of Registration', description: 'Current year registration' },
@@ -711,10 +711,6 @@ const Apply = () => {
             </div>
           </Link>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={isSaving}>
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              <span className="ml-2 hidden sm:inline">Save Draft</span>
-            </Button>
             <Button variant="ghost" size="sm" onClick={handleSignOut}>
               <LogOut className="w-4 h-4" />
             </Button>
@@ -764,7 +760,12 @@ const Apply = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)}>
+            <form onSubmit={(e) => {
+              if (currentStep !== 5) {
+                e.preventDefault();
+              }
+              return form.handleSubmit(handleSubmit)(e);
+            }}>
               {/* Step 1: Personal Information */}
               {currentStep === 1 && (
                 <Card className="border-0 shadow-lg animate-fade-in">
@@ -1279,16 +1280,28 @@ const Apply = () => {
               )}
 
               {/* Navigation Buttons */}
-              <div className="flex items-center justify-between mt-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={prevStep}
-                  disabled={currentStep === 1}
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Previous
-                </Button>
+              <div className="flex items-center justify-between mt-6 gap-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={prevStep}
+                    disabled={currentStep === 1}
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Previous
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={handleSaveDraft} 
+                    disabled={isSaving}
+                    className="hidden sm:flex"
+                  >
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    <span className="ml-2">Save Draft</span>
+                  </Button>
+                </div>
                 
                 {currentStep < 5 ? (
                   <Button type="button" onClick={nextStep}>

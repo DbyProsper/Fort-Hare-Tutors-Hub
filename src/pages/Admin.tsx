@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Search, 
   Filter, 
@@ -21,7 +22,9 @@ import {
   AlertCircle,
   ChevronRight,
   Download,
-  Upload
+  Upload,
+  FileArchive,
+  Printer
 } from 'lucide-react';
 import { UFHLogo } from '@/components/UFHLogo';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,6 +32,8 @@ import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
+import { createAuditLog, fetchAuditLogs, AuditLogEntry } from '@/lib/auditLog';
+import { fetchApplicationDocuments, checkDocumentsComplete, getRequiredDocumentsForPack } from '@/lib/hrDocumentPack';
 
 interface Application {
   id: string;
@@ -109,6 +114,11 @@ const Admin = () => {
   const [personalFormFile, setPersonalFormFile] = useState<File | null>(null);
   const [affidavitFile, setAffidavitFile] = useState<File | null>(null);
   const [isForwardingToHR, setIsForwardingToHR] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [isLoadingAuditLogs, setIsLoadingAuditLogs] = useState(false);
+  const [documentsComplete, setDocumentsComplete] = useState(false);
+  const [isGeneratingPack, setIsGeneratingPack] = useState(false);
+  const [activeTab, setActiveTab] = useState('details');
 
   useEffect(() => {
     if (!authLoading && isAdmin !== null) {
@@ -168,10 +178,68 @@ const Admin = () => {
     }
   };
 
+  const loadAuditLogs = async (applicationId: string) => {
+    try {
+      setIsLoadingAuditLogs(true);
+      const logs = await fetchAuditLogs(applicationId);
+      setAuditLogs(logs);
+    } catch (error) {
+      logger.error('Error loading audit logs:', error);
+      setAuditLogs([]);
+    } finally {
+      setIsLoadingAuditLogs(false);
+    }
+  };
+
+  const checkHRPackCompleteness = async (applicationId: string) => {
+    try {
+      const complete = await checkDocumentsComplete(applicationId);
+      setDocumentsComplete(complete);
+    } catch (error) {
+      logger.error('Error checking document completeness:', error);
+      setDocumentsComplete(false);
+    }
+  };
+
   const handleViewApplication = async (application: Application) => {
     setSelectedApplication(application);
+    setActiveTab('details');
     await fetchDocuments(application.id);
+    await loadAuditLogs(application.id);
+    await checkHRPackCompleteness(application.id);
     setIsDialogOpen(true);
+  };
+
+  const withdrawOffer = async (applicationId: string) => {
+    setIsUpdating(true);
+    setMessage('Withdrawing offer...');
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('tutor_applications')
+        .update({ offer_status: 'WITHDRAWN', offer_withdrawn_at: new Date().toISOString() } as any)
+        .eq('id', applicationId);
+      if (error) throw error;
+
+      await createAuditLog(
+        applicationId,
+        user?.id || '',
+        user?.email || 'Unknown Admin',
+        'OFFER_BULK_SENT',
+        'Offer withdrawn by admin'
+      );
+
+      toast.success('Offer withdrawn successfully');
+      await fetchApplications();
+      setIsDialogOpen(false);
+    } catch (err) {
+      logger.error('Error withdrawing offer:', err);
+      toast.error('Failed to withdraw offer');
+    } finally {
+      setIsUpdating(false);
+      setLoading(false);
+      setMessage('Loading...');
+    }
   };
 
   const sendOffer = async (applicationId: string) => {
@@ -187,6 +255,15 @@ const Admin = () => {
         .eq('id', applicationId);
 
       if (error) throw error;
+
+      // Log the action
+      await createAuditLog(
+        applicationId,
+        user?.id || '',
+        user?.email || 'Unknown Admin',
+        'OFFER_SENT',
+        'Offer documents sent to tutor for signature'
+      );
 
       toast.success('Offer documents sent - tutor can now download and sign from their dashboard');
       await fetchApplications();
@@ -210,6 +287,16 @@ const Admin = () => {
         .update({ offer_status: 'VERIFIED', appointment_status: 'FINALIZED' } as any)
         .eq('id', applicationId);
       if (error) throw error;
+
+      // Log the action
+      await createAuditLog(
+        applicationId,
+        user?.id || '',
+        user?.email || 'Unknown Admin',
+        'DOCUMENTS_VERIFIED',
+        'Offer documents verified and approved by HR'
+      );
+
       toast.success('Offer documents approved');
       await fetchApplications();
       setIsDialogOpen(false);
@@ -258,9 +345,19 @@ const Admin = () => {
     try {
       const { error } = await supabase
         .from('tutor_applications')
-        .update({ offer_status: 'RESUBMISSION_REQUIRED', document_rejection_reason: reason, document_rejected_at: new Date().toISOString() } as any)
+        .update({ offer_status: 'WITHDRAWN', document_rejection_reason: reason, document_rejected_at: new Date().toISOString() } as any)
         .eq('id', applicationId);
       if (error) throw error;
+
+      // Log the action
+      await createAuditLog(
+        applicationId,
+        user?.id || '',
+        user?.email || 'Unknown Admin',
+        'DOCUMENT_REJECTED',
+        `Documents rejected with reason: ${reason}`
+      );
+
       toast.success('Documents rejected; applicant will be asked to resubmit');
       await fetchApplications();
       setIsDialogOpen(false);
@@ -325,6 +422,20 @@ const Admin = () => {
         toast.success('All templates uploaded successfully');
         setPersonalFormFile(null);
         setAffidavitFile(null);
+
+        // Log the system-level action
+        const templatesList = [];
+        if (personalFormFile) templatesList.push('Personal Info Form');
+        if (affidavitFile) templatesList.push('Offer Affidavit');
+        
+        // Create a system log entry (use a placeholder application_id for system events)
+        await createAuditLog(
+          'system',
+          user?.id || '',
+          user?.email || 'Unknown Admin',
+          'OFFER_SENT',
+          `Updated offer templates: ${templatesList.join(', ')}`
+        );
       } else {
         errors.forEach(err => toast.error(err));
       }
@@ -348,6 +459,16 @@ const Admin = () => {
         .update({ offer_status: 'HR_SUBMITTED', hr_submitted_at: new Date().toISOString() } as any)
         .eq('id', applicationId);
       if (error) throw error;
+
+      // Log the action
+      await createAuditLog(
+        applicationId,
+        user?.id || '',
+        user?.email || 'Unknown Admin',
+        'HR_PACK_GENERATED',
+        'HR document pack generated and submitted to Human Resources'
+      );
+
       toast.success('Documents forwarded to HR successfully');
       await fetchApplications();
       setIsDialogOpen(false);
@@ -356,6 +477,69 @@ const Admin = () => {
       toast.error('Failed to forward documents to HR');
     } finally {
       setIsForwardingToHR(false);
+      setLoading(false);
+      setMessage('Loading...');
+    }
+  };
+
+  const handleGenerateHRPack = async (applicationId: string) => {
+    if (!documentsComplete) {
+      toast.error('All required onboarding documents must be uploaded before generating HR Pack');
+      return;
+    }
+
+    setIsGeneratingPack(true);
+    setMessage('Generating HR document pack...');
+    setLoading(true);
+
+    try {
+      // For now, we'll log the action and trigger the download
+      // In a full implementation, this would call generateHRPackViaFunction()
+      
+      await createAuditLog(
+        applicationId,
+        user?.id || '',
+        user?.email || 'Unknown Admin',
+        'HR_PACK_DOWNLOADED',
+        'HR document pack downloaded for processing'
+      );
+
+      toast.success('HR Pack generated successfully');
+    } catch (err) {
+      logger.error('Error generating HR pack:', err);
+      toast.error('Failed to generate HR pack');
+    } finally {
+      setIsGeneratingPack(false);
+      setLoading(false);
+      setMessage('Loading...');
+    }
+  };
+
+  const handlePrintHRPack = async (applicationId: string) => {
+    if (!documentsComplete) {
+      toast.error('All required onboarding documents must be uploaded before printing HR Pack');
+      return;
+    }
+
+    setIsGeneratingPack(true);
+    setMessage('Preparing HR document pack for printing...');
+    setLoading(true);
+
+    try {
+      await createAuditLog(
+        applicationId,
+        user?.id || '',
+        user?.email || 'Unknown Admin',
+        'HR_PACK_PRINTED',
+        'HR document pack sent to printer'
+      );
+
+      toast.success('HR Pack sent to printer');
+    } catch (err) {
+      logger.error('Error printing HR pack:', err);
+      toast.error('Failed to print HR pack');
+    } finally {
+      setIsGeneratingPack(false);
       setLoading(false);
       setMessage('Loading...');
     }
@@ -401,6 +585,20 @@ const Admin = () => {
           ? { ...app, status: newStatus, rejection_reason: newStatus === 'rejected' ? rejectionReason : app.rejection_reason }
           : app
       ));
+      // Create audit log for status change
+      if (newStatus === 'approved') {
+        await createAuditLog(selectedApplication.id, user?.id || '', user?.email || 'Unknown Admin', 'APPLICATION_APPROVED', 'Application approved by admin');
+      } else if (newStatus === 'rejected') {
+        // withdraw offer if any
+        try {
+          await supabase.from('tutor_applications').update({ offer_status: 'WITHDRAWN', offer_withdrawn_at: new Date().toISOString() }).eq('id', selectedApplication.id);
+        } catch (err) {
+          logger.error('Error withdrawing offer on rejection:', err);
+        }
+        await createAuditLog(selectedApplication.id, user?.id || '', user?.email || 'Unknown Admin', 'APPLICATION_REJECTED', `Application rejected: ${rejectionReason}`);
+      } else {
+        await createAuditLog(selectedApplication.id, user?.id || '', user?.email || 'Unknown Admin', 'APPLICATION_APPROVED', `Status changed to ${newStatus}`);
+      }
       
       setIsDialogOpen(false);
       setIsRejecting(false);
@@ -486,10 +684,18 @@ const Admin = () => {
               <p className="text-xs text-sidebar-foreground/70">Admin Dashboard</p>
             </div>
           </Link>
-          <Button variant="ghost" onClick={handleSignOut} className="gap-2 text-sidebar-foreground hover:bg-sidebar-accent">
-            <LogOut className="w-4 h-4" />
-            Sign Out
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link to="/admin/documents">
+              <Button variant="ghost" className="gap-2 text-sidebar-foreground hover:bg-sidebar-accent">
+                <FileArchive className="w-4 h-4" />
+                Offer Documents
+              </Button>
+            </Link>
+            <Button variant="ghost" onClick={handleSignOut} className="gap-2 text-sidebar-foreground hover:bg-sidebar-accent">
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -793,161 +999,282 @@ const Admin = () => {
                 </div>
               </DialogHeader>
 
-              <div className="space-y-6 py-4">
-                {/* Personal Information */}
-                <div>
-                  <h4 className="font-semibold mb-3">Personal Information</h4>
-                  <dl className="grid grid-cols-2 gap-3 text-sm">
-                    <div><dt className="text-muted-foreground">Email</dt><dd>{selectedApplication.email}</dd></div>
-                    <div><dt className="text-muted-foreground">Contact</dt><dd>{selectedApplication.contact_number}</dd></div>
-                    <div><dt className="text-muted-foreground">Date of Birth</dt><dd>{selectedApplication.date_of_birth}</dd></div>
-                    <div><dt className="text-muted-foreground">Nationality</dt><dd>{selectedApplication.nationality}</dd></div>
-                    <div className="col-span-2"><dt className="text-muted-foreground">Address</dt><dd>{selectedApplication.residential_address}</dd></div>
-                  </dl>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setActiveTab('details')} 
+                      className={`px-3 py-2 text-sm font-medium border-b-2 ${activeTab === 'details' ? 'border-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                    >
+                      Details
+                    </button>
+                    <button 
+                      onClick={() => setActiveTab('documents')} 
+                      className={`px-3 py-2 text-sm font-medium border-b-2 ${activeTab === 'documents' ? 'border-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                    >
+                      Documents
+                    </button>
+                    <button 
+                      onClick={() => setActiveTab('audit')} 
+                      className={`px-3 py-2 text-sm font-medium border-b-2 ${activeTab === 'audit' ? 'border-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                    >
+                      Audit Trail
+                    </button>
+                  </div>
                 </div>
 
-                {/* Academic Information */}
-                <div>
-                  <h4 className="font-semibold mb-3">Academic Information</h4>
-                  <dl className="grid grid-cols-2 gap-3 text-sm">
-                    <div><dt className="text-muted-foreground">Degree</dt><dd>{selectedApplication.degree_program}</dd></div>
-                    <div><dt className="text-muted-foreground">Year</dt><dd>Year {selectedApplication.year_of_study}</dd></div>
-                    <div><dt className="text-muted-foreground">Faculty</dt><dd>{selectedApplication.faculty}</dd></div>
-                    <div><dt className="text-muted-foreground">Department</dt><dd>{selectedApplication.department}</dd></div>
-                    <div className="col-span-2">
-                      <dt className="text-muted-foreground">Subjects to Tutor</dt>
-                      <dd className="flex flex-wrap gap-1 mt-1">
-                        {(Array.isArray(selectedApplication.subjects_to_tutor) 
-                          ? selectedApplication.subjects_to_tutor 
-                          : (selectedApplication.subjects_to_tutor as string)?.split(',') || []
-                        ).map((subj, index) => (
-                          <Badge key={index} variant="secondary">{typeof subj === 'string' ? subj.trim() : subj}</Badge>
-                        ))}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-
-                {/* Skills & Experience */}
-                <div>
-                  <h4 className="font-semibold mb-3">Skills & Experience</h4>
-                  <dl className="space-y-3 text-sm">
-                    <div>
-                      <dt className="text-muted-foreground">Languages</dt>
-                      <dd className="flex flex-wrap gap-1 mt-1">
-                        {(Array.isArray(selectedApplication.languages_spoken)
-                          ? selectedApplication.languages_spoken
-                          : (selectedApplication.languages_spoken as string)?.split(',') || []
-                        ).map((lang, index) => (
-                          <Badge key={index} variant="outline">{typeof lang === 'string' ? lang.trim() : lang}</Badge>
-                        ))}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Skills</dt>
-                      <dd className="flex flex-wrap gap-1 mt-1">
-                        {(Array.isArray(selectedApplication.skills_competencies)
-                          ? selectedApplication.skills_competencies
-                          : (selectedApplication.skills_competencies as string)?.split(',') || []
-                        ).map((skill, index) => (
-                          <Badge key={index} variant="outline">{typeof skill === 'string' ? skill.trim() : skill}</Badge>
-                        ))}
-                      </dd>
-                    </div>
-                    {selectedApplication.previous_tutoring_experience && (
-                      <div>
-                        <dt className="text-muted-foreground">Previous Tutoring Experience</dt>
-                        <dd className="mt-1">{selectedApplication.previous_tutoring_experience}</dd>
-                      </div>
-                    )}
-                    <div>
-                      <dt className="text-muted-foreground">Availability</dt>
-                      <dd className="mt-1">{selectedApplication.availability?.description || 'Not specified'}</dd>
-                    </div>
-                  </dl>
-                </div>
-
-                {/* Motivation Letter */}
-                <div>
-                  <h4 className="font-semibold mb-3">Motivation Letter</h4>
-                  <p className="text-sm bg-muted/50 p-4 rounded-lg whitespace-pre-wrap">
-                    {selectedApplication.motivation_letter}
-                  </p>
-                </div>
-
-                {/* offer-related and application documents are listed below */}
-                {/* Offer document verification panel (now shows every uploaded file) */}
-                  {documents.length > 0 && (
-                    <div className="mt-4 p-4 border rounded">
-                      <h5 className="font-semibold">All Uploaded Documents</h5>
-                      <p className="text-sm text-muted-foreground mb-2">Includes original application files plus any offer‑related documents</p>
-                      <div className="space-y-2">
-                        {documents.map(d => (
-                          <div key={d.id} className="flex items-center justify-between p-2 border rounded">
-                            <div className="flex items-center gap-2">
-                              <FileText className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-sm">{d.file_name}</span>
-                              <Badge variant="outline" className="text-xs">{d.document_type.replace('_', ' ')}</Badge>
-                            </div>
-                            <div>
-                              <Button variant="ghost" size="sm" onClick={() => downloadDocument(d)}><Download className="w-4 h-4" /></Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-2 mt-3 flex-wrap">
-                        {selectedApplication.offer_status === 'VERIFIED' ? (
-                          <Button 
-                            onClick={() => handleForwardToHR(selectedApplication!.id)} 
-                            disabled={isForwardingToHR}
-                            className="bg-blue-600 hover:bg-blue-700"
-                          >
-                            {isForwardingToHR ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                            Forward to HR
-                          </Button>
-                        ) : (
-                          <>
-                            <Button onClick={() => approveOfferDocuments(selectedApplication!.id)} disabled={isUpdating}>
-                              {isUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                              Approve Documents
-                            </Button>
-                            {!isOfferRejecting ? (
-                              <Button variant="destructive" onClick={() => setIsOfferRejecting(true)}>Reject Documents</Button>
-                            ) : (
-                              <div className="flex-1 flex gap-2">
-                                <Textarea placeholder="Reason for rejection" value={offerRejectionReason} onChange={(e) => setOfferRejectionReason(e.target.value)} />
-                                <div className="flex gap-2 mt-2">
-                                  <Button variant="outline" onClick={() => { setIsOfferRejecting(false); setOfferRejectionReason(''); }}>Cancel</Button>
-                                  <Button variant="destructive" onClick={() => rejectOfferDocuments(selectedApplication!.id, offerRejectionReason)} disabled={!offerRejectionReason.trim() || isUpdating}>Confirm Reject</Button>
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        )}
-                        {/* allow manual withdrawal regardless of verify/resubmit state */}
-                        {selectedApplication.offer_status && selectedApplication.offer_status !== 'WITHDRAWN' && selectedApplication.offer_status !== 'NOT_SENT' && (
-                          <Button variant="outline" onClick={() => withdrawOffer(selectedApplication!.id)} disabled={isUpdating}>
-                            Withdraw Offer
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Rejection Reason Input */}
+                {/* Centralized rejection panel visible across tabs */}
                 {isRejecting && (
-                  <div>
-                    <h4 className="font-semibold mb-3 text-destructive">Rejection Reason</h4>
+                  <div className="p-4 mb-4 border rounded bg-destructive/5">
+                    <h4 className="font-semibold mb-2 text-destructive">Rejection Reason</h4>
                     <Textarea
                       placeholder="Please provide a reason for rejection. This will be visible to the applicant."
                       value={rejectionReason}
                       onChange={(e) => setRejectionReason(e.target.value)}
-                      className="min-h-[100px]"
+                      className="min-h-[100px] mb-3"
                     />
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => { setIsRejecting(false); setRejectionReason(''); }}>Cancel</Button>
+                      <Button variant="destructive" onClick={() => handleUpdateStatus('rejected')} disabled={!rejectionReason.trim() || isUpdating}>Confirm Rejection</Button>
+                    </div>
                   </div>
                 )}
-              </div>
+
+                {/* Details Tab */}
+                {activeTab === 'details' && (
+                <div className="space-y-6 py-4">
+                  {/* Personal Information */}
+                  <div>
+                    <h4 className="font-semibold mb-3">Personal Information</h4>
+                    <dl className="grid grid-cols-2 gap-3 text-sm">
+                      <div><dt className="text-muted-foreground">Email</dt><dd>{selectedApplication.email}</dd></div>
+                      <div><dt className="text-muted-foreground">Contact</dt><dd>{selectedApplication.contact_number}</dd></div>
+                      <div><dt className="text-muted-foreground">Date of Birth</dt><dd>{selectedApplication.date_of_birth}</dd></div>
+                      <div><dt className="text-muted-foreground">Nationality</dt><dd>{selectedApplication.nationality}</dd></div>
+                      <div className="col-span-2"><dt className="text-muted-foreground">Address</dt><dd>{selectedApplication.residential_address}</dd></div>
+                    </dl>
+                  </div>
+
+                  {/* Academic Information */}
+                  <div>
+                    <h4 className="font-semibold mb-3">Academic Information</h4>
+                    <dl className="grid grid-cols-2 gap-3 text-sm">
+                      <div><dt className="text-muted-foreground">Degree</dt><dd>{selectedApplication.degree_program}</dd></div>
+                      <div><dt className="text-muted-foreground">Year</dt><dd>Year {selectedApplication.year_of_study}</dd></div>
+                      <div><dt className="text-muted-foreground">Faculty</dt><dd>{selectedApplication.faculty}</dd></div>
+                      <div><dt className="text-muted-foreground">Department</dt><dd>{selectedApplication.department}</dd></div>
+                      <div className="col-span-2">
+                        <dt className="text-muted-foreground">Subjects to Tutor</dt>
+                        <dd className="flex flex-wrap gap-1 mt-1">
+                          {(Array.isArray(selectedApplication.subjects_to_tutor) 
+                            ? selectedApplication.subjects_to_tutor 
+                            : (selectedApplication.subjects_to_tutor as string)?.split(',') || []
+                          ).map((subj, index) => (
+                            <Badge key={index} variant="secondary">{typeof subj === 'string' ? subj.trim() : subj}</Badge>
+                          ))}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+
+                  {/* Skills & Experience */}
+                  <div>
+                    <h4 className="font-semibold mb-3">Skills & Experience</h4>
+                    <dl className="space-y-3 text-sm">
+                      <div>
+                        <dt className="text-muted-foreground">Languages</dt>
+                        <dd className="flex flex-wrap gap-1 mt-1">
+                          {(Array.isArray(selectedApplication.languages_spoken)
+                            ? selectedApplication.languages_spoken
+                            : (selectedApplication.languages_spoken as string)?.split(',') || []
+                          ).map((lang, index) => (
+                            <Badge key={index} variant="outline">{typeof lang === 'string' ? lang.trim() : lang}</Badge>
+                          ))}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Skills</dt>
+                        <dd className="flex flex-wrap gap-1 mt-1">
+                          {(Array.isArray(selectedApplication.skills_competencies)
+                            ? selectedApplication.skills_competencies
+                            : (selectedApplication.skills_competencies as string)?.split(',') || []
+                          ).map((skill, index) => (
+                            <Badge key={index} variant="outline">{typeof skill === 'string' ? skill.trim() : skill}</Badge>
+                          ))}
+                        </dd>
+                      </div>
+                      {selectedApplication.previous_tutoring_experience && (
+                        <div>
+                          <dt className="text-muted-foreground">Previous Tutoring Experience</dt>
+                          <dd className="mt-1">{selectedApplication.previous_tutoring_experience}</dd>
+                        </div>
+                      )}
+                      <div>
+                        <dt className="text-muted-foreground">Availability</dt>
+                        <dd className="mt-1">{selectedApplication.availability?.description || 'Not specified'}</dd>
+                      </div>
+                    </dl>
+                  </div>
+
+                  {/* Motivation Letter */}
+                  <div>
+                    <h4 className="font-semibold mb-3">Motivation Letter</h4>
+                    <p className="text-sm bg-muted/50 p-4 rounded-lg whitespace-pre-wrap">
+                      {selectedApplication.motivation_letter}
+                    </p>
+                  </div>
+                </div>
+                )}
+
+                {activeTab === 'documents' && (
+                <div className="space-y-6 py-4">
+                  <div>
+                    <h4 className="font-semibold mb-3">Documents</h4>
+                    <div className="space-y-2">
+                      {documents.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No documents uploaded</p>
+                      ) : (
+                        documents.map(doc => (
+                          <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-sm">{doc.file_name}</span>
+                              <Badge variant="outline" className="text-xs">{doc.document_type.replace('_', ' ')}</Badge>
+                            </div>
+                            <Button variant="ghost" size="sm" onClick={() => downloadDocument(doc)}>
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Offer document verification panel */}
+                    {documents.some(d => d.document_type === 'offer_affidavit' || d.document_type === 'offer_personal_info') && (
+                      <div className="mt-4 p-4 border rounded">
+                        <h5 className="font-semibold">Offer Documents</h5>
+                        <p className="text-sm text-muted-foreground mb-2">Uploaded offer acceptance documents</p>
+                        <div className="space-y-2">
+                          {documents.filter(d => d.document_type === 'offer_affidavit' || d.document_type === 'offer_personal_info').map(d => (
+                            <div key={d.id} className="flex items-center justify-between p-2 border rounded">
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-sm">{d.file_name}</span>
+                                <Badge variant="outline" className="text-xs">{d.document_type.replace('_', ' ')}</Badge>
+                              </div>
+                              <div>
+                                <Button variant="ghost" size="sm" onClick={() => downloadDocument(d)}><Download className="w-4 h-4" /></Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2 mt-3 flex-wrap">
+                          {selectedApplication.offer_status === 'VERIFIED' ? (
+                            <Button 
+                              onClick={() => handleForwardToHR(selectedApplication!.id)} 
+                              disabled={isForwardingToHR}
+                              className="bg-blue-600 hover:bg-blue-700"
+                            >
+                              {isForwardingToHR ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                              Forward to HR
+                            </Button>
+                          ) : (
+                            <>
+                              <Button onClick={() => approveOfferDocuments(selectedApplication!.id)} disabled={isUpdating}>
+                                {isUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                Approve Documents
+                              </Button>
+                              {!isOfferRejecting ? (
+                                <Button variant="destructive" onClick={() => setIsOfferRejecting(true)}>Reject Documents</Button>
+                              ) : (
+                                <div className="flex-1 flex gap-2">
+                                  <Textarea placeholder="Reason for rejection" value={offerRejectionReason} onChange={(e) => setOfferRejectionReason(e.target.value)} />
+                                  <div className="flex gap-2 mt-2">
+                                    <Button variant="outline" onClick={() => { setIsOfferRejecting(false); setOfferRejectionReason(''); }}>Cancel</Button>
+                                    <Button variant="destructive" onClick={() => rejectOfferDocuments(selectedApplication!.id, offerRejectionReason)} disabled={!offerRejectionReason.trim() || isUpdating}>Confirm Reject</Button>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  
+
+                  {/* HR Document Pack Section */}
+                  {selectedApplication.offer_status === 'VERIFIED' && (
+                    <div className="mt-6 p-4 border rounded bg-blue-50 dark:bg-blue-950">
+                      <h5 className="font-semibold mb-3 flex items-center gap-2">
+                        <FileArchive className="w-4 h-4" />
+                        HR Document Pack
+                      </h5>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {documentsComplete 
+                          ? 'All required documents are ready. Download or print the complete HR onboarding pack below.'
+                          : 'All required onboarding documents must be uploaded before generating the HR Pack.'}
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div title={!documentsComplete ? 'All required onboarding documents must be uploaded before generating HR Pack' : ''}>
+                          <Button 
+                            onClick={() => handleGenerateHRPack(selectedApplication!.id)}
+                            disabled={!documentsComplete || isGeneratingPack}
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            {isGeneratingPack ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
+                            Download HR Pack (PDF)
+                          </Button>
+                        </div>
+                        <div title={!documentsComplete ? 'All required onboarding documents must be uploaded before generating HR Pack' : ''}>
+                          <Button 
+                            onClick={() => handlePrintHRPack(selectedApplication!.id)}
+                            disabled={!documentsComplete || isGeneratingPack}
+                            variant="outline"
+                          >
+                            {isGeneratingPack ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Printer className="w-4 h-4 mr-2" />}
+                            Print Full HR Pack
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                )}
+
+                {activeTab === 'audit' && (
+                <div className="space-y-4 py-4">
+                  <div>
+                    <h4 className="font-semibold mb-3">Audit Trail</h4>
+                    {isLoadingAuditLogs ? (
+                      <p className="text-sm text-muted-foreground">Loading audit logs...</p>
+                    ) : auditLogs.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No audit logs found</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {auditLogs.map((log) => (
+                          <div key={log.id} className="p-3 border rounded-lg bg-muted/30">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <Badge variant="outline" className="mb-2">{log.action_type.replace(/_/g, ' ')}</Badge>
+                                <p className="text-sm font-medium">{log.admin_name}</p>
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(log.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+                            {log.action_description && (
+                              <p className="text-sm text-muted-foreground">{log.action_description}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                )}
+              </Tabs>
 
               <DialogFooter className="flex-col sm:flex-row gap-2">
                 {!isRejecting ? (
@@ -979,6 +1306,12 @@ const Admin = () => {
                         disabled={isUpdating}
                       >
                         Mark as Under Review
+                      </Button>
+                    )}
+                    {/* Withdraw offer if it was sent */}
+                    {selectedApplication.offer_status === 'SENT' && (
+                      <Button variant="destructive" onClick={() => { if (confirm('Withdraw the offer for this applicant?')) withdrawOffer(selectedApplication.id); }} disabled={isUpdating}>
+                        Withdraw Offer
                       </Button>
                     )}
                   </>

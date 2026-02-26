@@ -27,6 +27,7 @@ import { logger } from '@/lib/logger';
 interface Application {
   id: string;
   status: string;
+  offer_status?: string;
   created_at: string;
   submitted_at: string | null;
   rejection_reason: string | null;
@@ -112,7 +113,7 @@ const Dashboard = () => {
 
       const { data, error } = await supabase
         .from('tutor_applications')
-        .select('id, status, created_at, submitted_at, rejection_reason, full_name, degree_program, faculty')
+        .select('id, status, offer_status, created_at, submitted_at, rejection_reason, full_name, degree_program, faculty')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -203,6 +204,17 @@ const Dashboard = () => {
               Manage your tutor application and track your progress here.
             </p>
           </div>
+
+          {/* Offer Sent Alert */}
+          {application && application.offer_status === 'SENT' && (
+            <Alert className="mb-6 border-2 border-blue-200 bg-blue-50">
+              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <AlertTitle className="text-blue-900">Offer Documents Ready</AlertTitle>
+              <AlertDescription className="text-blue-800">
+                Your offer documents are ready for download! Please visit your application to download the required forms, have them signed by a Commissioner of Oaths, and submit them back. You'll also need to upload your Certified ID/Passport, Proof of Registration, Bank Statement, and Police Station stamp.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {application ? (
             <div className="space-y-6">

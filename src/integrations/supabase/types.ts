@@ -117,6 +117,16 @@ export type Database = {
           user_id: string
           work_experience: string | null
           year_of_study: number
+          offer_status: string | null
+          offer_sent_at: string | null
+          offer_affidavit: string | null
+          offer_personal_info: string | null
+          certified_id: string | null
+          proof_of_registration: string | null
+          appointment_status: string | null
+          document_rejection_reason: string | null
+          document_rejected_at: string | null
+          hr_submitted_at: string | null
         }
         Insert: {
           admin_notes?: string | null
@@ -149,6 +159,16 @@ export type Database = {
           user_id: string
           work_experience?: string | null
           year_of_study: number
+          offer_status?: string | null
+          offer_sent_at?: string | null
+          offer_affidavit?: string | null
+          offer_personal_info?: string | null
+          certified_id?: string | null
+          proof_of_registration?: string | null
+          appointment_status?: string | null
+          document_rejection_reason?: string | null
+          document_rejected_at?: string | null
+          hr_submitted_at?: string | null
         }
         Update: {
           admin_notes?: string | null
@@ -181,6 +201,16 @@ export type Database = {
           user_id?: string
           work_experience?: string | null
           year_of_study?: number
+          offer_status?: string | null
+          offer_sent_at?: string | null
+          offer_affidavit?: string | null
+          offer_personal_info?: string | null
+          certified_id?: string | null
+          proof_of_registration?: string | null
+          appointment_status?: string | null
+          document_rejection_reason?: string | null
+          document_rejected_at?: string | null
+          hr_submitted_at?: string | null
         }
         Relationships: []
       }
@@ -202,6 +232,36 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      audit_logs: {
+        Row: {
+          id: string
+          application_id: string
+          admin_id: string
+          admin_name: string
+          action_type: string
+          action_description: string | null
+          timestamp: string
+        }
+        Insert: {
+          id?: string
+          application_id: string
+          admin_id: string
+          admin_name: string
+          action_type: string
+          action_description?: string | null
+          timestamp?: string
+        }
+        Update: {
+          id?: string
+          application_id?: string
+          admin_id?: string
+          admin_name?: string
+          action_type?: string
+          action_description?: string | null
+          timestamp?: string
         }
         Relationships: []
       }
