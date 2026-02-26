@@ -704,10 +704,10 @@ const ApplicationView = () => {
           {/* Documents */}
           <div id="documents-section" style={{ backgroundColor: '#f9f9faff', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem', color: 'white' }}>
             <div style={{ padding: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 📎 Documents
               </h2>
-              <p style={{ color: '#d1d5db', marginBottom: '1rem' }}>
+              <p style={{ color: '#090c11ff', marginBottom: '1rem' }}>
                 Required documents for your application – please give each file a descriptive name (e.g. "ID_Copy.pdf") so administrators can identify them easily.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
