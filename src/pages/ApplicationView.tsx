@@ -271,7 +271,7 @@ const ApplicationView = () => {
       <header style={{ backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderTop: '3px solid #003A8F' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '1rem', textDecoration: 'none', color: 'inherit' }}>
               <div style={{ width: '40px', height: '40px', backgroundColor: '#003A8F', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,58,143,0.2)' }}>
                 <UFHLogo />
               </div>
@@ -279,7 +279,7 @@ const ApplicationView = () => {
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1f2937' }}>UFH Tutors</h1>
                 <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>University of Fort Hare</p>
               </div>
-            </div>
+            </Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Welcome, {user?.user_metadata?.full_name || user?.email}</span>
               <button 
@@ -309,7 +309,10 @@ const ApplicationView = () => {
                   boxShadow: '0 10px 30px rgba(0,58,143,0.15)',
                   transition: 'transform 0.3s ease, box-shadow 0.3s ease',
                   cursor: 'pointer'
-                }} className="relative" onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.02)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 15px 40px rgba(0,58,143,0.25)'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 10px 30px rgba(0,58,143,0.15)'; }}>
+                }} className="relative" onClick={() => {
+                  const el = document.getElementById('upload-section');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }} onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.02)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 15px 40px rgba(0,58,143,0.25)'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 10px 30px rgba(0,58,143,0.15)'; }}>
                   {/* Dark overlay with UFH gradient */}
                   <div style={{
                     position: 'absolute',
@@ -400,17 +403,18 @@ const ApplicationView = () => {
                       Download Affidavit
                     </button>
                   </div>
-                  <h4 style={{ fontWeight: '600', fontSize: '1rem', color: '#1f2937', marginBottom: '1rem' }}>Upload All Required Documents</h4>
+                  <h4 id="upload-section" style={{ fontWeight: '600', fontSize: '1rem', color: '#1f2937', marginBottom: '1rem' }}>Upload All Required Documents</h4>
+                  <p style={{ fontSize: '0.85rem', color: '#374151', marginBottom: '0.75rem' }}>Please name your files clearly (e.g. <em>StudentNumber_DocumentType.pdf</em>) so the Admin can identify them.</p>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>✓ Signed Acceptance Affidavit</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Signed & notarized</p>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferAffidavitFile(e.target.files?.[0] || null)} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>✓ Signed Personal Info Form</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Signed & notarized</p>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferPersonalFormFile(e.target.files?.[0] || null)} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>Certified ID / Passport / Study Permit</label>

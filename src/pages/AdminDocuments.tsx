@@ -93,7 +93,7 @@ const AdminDocuments = () => {
               <UFHLogo className="w-10 h-10" />
             </div>
             <div>
-              <h1 className="font-bold text-lg">Documents Manager</h1>
+              <h1 className="font-bold text-lg text-gray-800">Documents Manager</h1>
               <p className="text-xs text-muted-foreground">View applicant uploads and compile HR packs</p>
             </div>
           </Link>
@@ -141,9 +141,9 @@ const AdminDocuments = () => {
               <div className="space-y-2">
                 {selectedAppDocs.map(d => (
                   <div key={d.file_path} className="flex items-center justify-between p-3 rounded-lg border">
-                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
                       <FileText className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm">{d.file_name}</span>
+                      <span className="text-sm">{d.label ? `${d.label} — ${d.file_name}` : d.file_name}</span>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="ghost" size="sm" onClick={() => downloadDocument(d.file_path, d.file_name)}>

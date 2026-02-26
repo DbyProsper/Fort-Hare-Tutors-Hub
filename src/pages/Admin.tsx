@@ -223,9 +223,9 @@ const Admin = () => {
       toast.success('Offer withdrawn successfully');
       await fetchApplications();
       setIsDialogOpen(false);
-    } catch (err) {
-      logger.error('Error withdrawing offer:', err);
-      toast.error('Failed to withdraw offer');
+    } catch (err: any) {
+      logger.error('Error withdrawing offer:', err?.message ? err.message : JSON.stringify(err));
+      toast.error(err?.message || 'Failed to withdraw offer');
     } finally {
       setIsUpdating(false);
       setLoading(false);
@@ -556,8 +556,8 @@ const Admin = () => {
         // withdraw offer if any
         try {
           await supabase.from('tutor_applications').update({ offer_status: 'WITHDRAWN', offer_withdrawn_at: new Date().toISOString() }).eq('id', selectedApplication.id);
-        } catch (err) {
-          logger.error('Error withdrawing offer on rejection:', err);
+        } catch (err: any) {
+          logger.error('Error withdrawing offer on rejection:', err?.message ? err.message : JSON.stringify(err));
         }
         await createAuditLog(selectedApplication.id, user?.id || '', user?.email || 'Unknown Admin', 'APPLICATION_REJECTED', `Application rejected: ${rejectionReason}`);
       } else {
