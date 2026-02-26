@@ -33,7 +33,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
 import { createAuditLog, fetchAuditLogs, AuditLogEntry } from '@/lib/auditLog';
-import { fetchApplicationDocuments, checkDocumentsComplete, getRequiredDocumentsForPack } from '@/lib/hrDocumentPack';
+import { fetchApplicationDocuments, checkDocumentsComplete, getRequiredDocumentsForPack, mergeDocumentsIntoPDF } from '@/lib/hrDocumentPack';
 
 interface Application {
   id: string;
@@ -482,9 +482,31 @@ const Admin = () => {
     setLoading(true);
 
     try {
-      // For now, we'll log the action and trigger the download
-      // In a full implementation, this would call generateHRPackViaFunction()
-      
+      // fetch the latest documents list
+      const docs = await fetchApplicationDocuments(applicationId);
+      const app = selectedApplication;
+      if (!app) throw new Error('Application data missing');
+
+      const blob = await mergeDocumentsIntoPDF(
+        docs,
+        app.student_number,
+        app.full_name,
+        app.department,
+        applicationId,
+        new Date().toLocaleDateString()
+      );
+
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `HR_Pack_${applicationId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
       await createAuditLog(
         applicationId,
         user?.id || '',
@@ -934,7 +956,7 @@ const Admin = () => {
                         {app.submitted_at && new Date(app.submitted_at).toLocaleDateString('en-ZA')}
                       </span>
                       {/* Send Offer button for approved applicants */}
-                      {app.status === 'approved' && !['SENT','ACCEPTED_AWAITING_UPLOAD','SIGNED_UPLOADED','RESUBMISSION_REQUIRED','VERIFIED','HR_SUBMITTED','WITHDRAWN'].includes(app.offer_status || '') && (
+                      {app.status === 'approved' && !['SENT','ACCEPTED_AWAITING_UPLOAD','SIGNED_UPLOADED','RESUBMISSION_REQUIRED','VERIFIED','HR_SUBMITTED'].includes(app.offer_status || '') && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -1200,11 +1222,16 @@ const Admin = () => {
                         <FileArchive className="w-4 h-4" />
                         HR Document Pack
                       </h5>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        {documentsComplete 
-                          ? 'All required documents are ready. Download or print the complete HR onboarding pack below.'
-                          : 'All required onboarding documents must be uploaded before generating the HR Pack.'}
-                      </p>
+                      <div className="flex items-center justify-between mb-4">
+                        <p className="text-sm text-muted-foreground">
+                          {documentsComplete 
+                            ? 'All required documents are ready. Download or print the complete HR onboarding pack below.'
+                            : 'All required onboarding documents must be uploaded before generating the HR Pack.'}
+                        </p>
+                        <Button size="sm" variant="outline" onClick={() => selectedApplication && checkHRPackCompleteness(selectedApplication.id)}>
+                          Refresh
+                        </Button>
+                      </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <div title={!documentsComplete ? 'All required onboarding documents must be uploaded before generating HR Pack' : ''}>
                           <Button 
