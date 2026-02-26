@@ -93,7 +93,7 @@ const AdminDocuments = () => {
               <UFHLogo className="w-10 h-10" />
             </div>
             <div>
-              <h1 className="font-bold text-lg">Documents Manager</h1>
+              <h1 className="font-bold text-lg text-gray-800">Documents Manager</h1>
               <p className="text-xs text-muted-foreground">View applicant uploads and compile HR packs</p>
             </div>
           </Link>

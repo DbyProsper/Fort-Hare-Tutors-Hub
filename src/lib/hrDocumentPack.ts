@@ -31,14 +31,13 @@ export const fetchApplicationDocuments = async (applicationId: string): Promise<
       'tax_number': 'Tax Number Confirmation'
     };
 
-    return (data || [])
-      .filter(doc => documentMap[doc.document_type])
-      .map(doc => ({
-        type: doc.document_type,
-        label: documentMap[doc.document_type] || doc.document_type,
-        file_path: doc.file_path,
-        file_name: doc.file_name
-      }));
+    return (data || []).map(doc => ({
+      type: doc.document_type,
+      // use friendly label if we know it, otherwise just show raw type
+      label: documentMap[doc.document_type] || doc.document_type.replace(/_/g, ' '),
+      file_path: doc.file_path,
+      file_name: doc.file_name
+    }));
   } catch (err) {
     logger.error('Error fetching application documents:', err);
     return [];
