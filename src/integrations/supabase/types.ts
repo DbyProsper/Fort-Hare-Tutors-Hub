@@ -119,6 +119,7 @@ export type Database = {
           year_of_study: number
           offer_status: string | null
           offer_sent_at: string | null
+          offer_withdrawn_at: string | null
           offer_affidavit: string | null
           offer_personal_info: string | null
           certified_id: string | null
@@ -161,6 +162,7 @@ export type Database = {
           year_of_study: number
           offer_status?: string | null
           offer_sent_at?: string | null
+          offer_withdrawn_at?: string | null
           offer_affidavit?: string | null
           offer_personal_info?: string | null
           certified_id?: string | null
@@ -203,6 +205,7 @@ export type Database = {
           year_of_study?: number
           offer_status?: string | null
           offer_sent_at?: string | null
+          offer_withdrawn_at?: string | null
           offer_affidavit?: string | null
           offer_personal_info?: string | null
           certified_id?: string | null

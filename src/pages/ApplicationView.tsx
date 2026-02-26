@@ -95,6 +95,15 @@ const ApplicationView = () => {
   const [offerAffidavitFile, setOfferAffidavitFile] = useState<File | null>(null);
   const [offerPersonalFormFile, setOfferPersonalFormFile] = useState<File | null>(null);
   const [isUploadingOfferDocs, setIsUploadingOfferDocs] = useState(false);
+
+  // additional onboarding documents
+  const [additionalFiles, setAdditionalFiles] = useState<Record<string, File | null>>({
+    certified_id: null,
+    academic_transcript: null,
+    cv: null,
+    proof_of_registration: null,
+    bank_statement: null,
+  });
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   logger.log('ApplicationView rendered');
@@ -365,7 +374,7 @@ const ApplicationView = () => {
                       <p style={{ color: '#92400e' }}>Please correct and re-upload the signed documents.</p>
                     </div>
                   )}
-                  <div style={{ backgroundColor: '#f0f4ff', border: '1px solid #d0d9ff', borderRadius: '0.5rem', padding: '1rem', marginBottom: '1.5rem' }}>
+                  <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', marginBottom: '1.5rem' }}>
                     <p style={{ color: '#1f2937', fontWeight: '500', marginBottom: '0.5rem' }}>📋 Upload Documents to Admin</p>
                     <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.5rem' }}>You can now upload all required documents here. Each document will be sent directly to the admin for verification.</p>
                     <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Additionally, you must download, print, and sign the two forms below, then upload the signed versions.</p>
@@ -434,27 +443,27 @@ const ApplicationView = () => {
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>Certified ID / Passport / Study Permit</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Certified copy (within 3 months)</p>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, certified_id: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>Academic Transcript</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Official UFH transcript</p>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, academic_transcript: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>CV / Resume</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>PDF preferred</p>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, cv: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>Proof of Registration</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Current year registration</p>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, proof_of_registration: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>3 Months Bank Statement</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Recent bank statement stamped</p>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, bank_statement: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                   </div>
                   <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '1rem' }}>
@@ -464,42 +473,51 @@ const ApplicationView = () => {
                     <button
                       disabled={isUploadingOfferDocs}
                       onClick={async () => {
-                        // if no new files selected, allow if there are already uploaded offer docs
-                        if (!offerAffidavitFile && !offerPersonalFormFile) {
-                          const hasAff = uploadedDocuments.some(d => d.document_type === 'offer_affidavit');
-                          const hasPer = uploadedDocuments.some(d => d.document_type === 'offer_personal_info');
-                          if (!hasAff && !hasPer) {
-                            toast.error('Please choose at least one PDF to upload');
+                        const hasNewAff = !!offerAffidavitFile;
+                        const hasNewPer = !!offerPersonalFormFile;
+                        const hasNewAdditional = Object.values(additionalFiles).some(f => !!f);
+                        if (!hasNewAff && !hasNewPer && !hasNewAdditional) {
+                          const hasAnyExisting = uploadedDocuments.length > 0;
+                          if (!hasAnyExisting) {
+                            toast.error('Please choose at least one file to upload');
                             return;
                           }
                         }
                         setIsUploadingOfferDocs(true);
-                        setMessage('Uploading signed documents...');
+                        setMessage('Uploading documents...');
                         setLoading(true);
                         try {
                           const uploads: UploadedDocument[] = [];
                           const nowTs = Date.now();
-                          if (offerAffidavitFile) {
-                            if (offerAffidavitFile.type !== 'application/pdf') throw new Error('Affidavit must be a PDF');
-                            const path = `${id}/offer_affidavit_${nowTs}.pdf`;
-                            const { data, error } = await supabase.storage.from('application-documents').upload(path, offerAffidavitFile, { contentType: 'application/pdf' });
-                            if (error) throw error;
-                            // insert metadata
-                            const { error: insErr } = await supabase.from('application_documents').insert({ application_id: id, document_type: 'offer_affidavit', file_name: offerAffidavitFile.name, file_path: path, file_size: offerAffidavitFile.size, mime_type: 'application/pdf' } as any);
+
+                          const processFile = async (file: File, docType: string) => {
+                            if ((docType === 'offer_affidavit' || docType === 'offer_personal_info') && file.type !== 'application/pdf') {
+                              throw new Error(`${docType.replace(/_/g, ' ')} must be a PDF`);
+                            }
+                            const extension = file.name.split('.').pop();
+                            const path = `${id}/${docType}_${nowTs}.${extension}`;
+                            const { error: storageErr } = await supabase.storage.from('application-documents').upload(path, file, { contentType: file.type });
+                            if (storageErr) throw storageErr;
+                            const insertObj: any = {
+                              application_id: id,
+                              user_id: user?.id || '',
+                              document_type: docType,
+                              file_name: file.name,
+                              file_path: path,
+                              file_size: file.size,
+                              mime_type: file.type,
+                            };
+                            const { error: insErr } = await supabase.from('application_documents').insert(insertObj);
                             if (insErr) throw insErr;
-                            uploads.push({ document_type: 'offer_affidavit', file_name: offerAffidavitFile.name, file_path: path, file_size: offerAffidavitFile.size, mime_type: 'application/pdf' });
-                          }
-                          if (offerPersonalFormFile) {
-                            if (offerPersonalFormFile.type !== 'application/pdf') throw new Error('Personal info form must be a PDF');
-                            const path = `${id}/offer_personal_info_${nowTs}.pdf`;
-                            const { data, error } = await supabase.storage.from('application-documents').upload(path, offerPersonalFormFile, { contentType: 'application/pdf' });
-                            if (error) throw error;
-                            const { error: insErr } = await supabase.from('application_documents').insert({ application_id: id, document_type: 'offer_personal_info', file_name: offerPersonalFormFile.name, file_path: path, file_size: offerPersonalFormFile.size, mime_type: 'application/pdf' } as any);
-                            if (insErr) throw insErr;
-                            uploads.push({ document_type: 'offer_personal_info', file_name: offerPersonalFormFile.name, file_path: path, file_size: offerPersonalFormFile.size, mime_type: 'application/pdf' });
+                            uploads.push({ document_type: docType, file_name: file.name, file_path: path, file_size: file.size, mime_type: file.type });
+                          };
+
+                          if (offerAffidavitFile) await processFile(offerAffidavitFile, 'offer_affidavit');
+                          if (offerPersonalFormFile) await processFile(offerPersonalFormFile, 'offer_personal_info');
+                          for (const [type, file] of Object.entries(additionalFiles)) {
+                            if (file) await processFile(file, type);
                           }
 
-                          // Update application status (if resubmission, increment counters)
                           const updates: any = { offer_status: 'SIGNED_UPLOADED' };
                           if (application.offer_status === 'RESUBMISSION_REQUIRED') {
                             updates.resubmission_count = (application.resubmission_count || 0) + 1;
@@ -509,14 +527,12 @@ const ApplicationView = () => {
                           if (appErr) throw appErr;
 
                           toast.success('Documents uploaded successfully');
-                          // Refresh documents list
                           const { data: docs, error: docsError } = await supabase.from('application_documents').select('*').eq('application_id', id);
                           if (!docsError && docs) setUploadedDocuments(docs);
-                          // update local application state
                           setApplication((prev: any) => ({ ...prev, ...updates }));
                         } catch (err: any) {
                           logger.error('Error uploading offer documents:', err);
-                          toast.error(err.message || 'Failed to upload documents');
+                          toast.error(JSON.stringify(err) || 'Failed to upload documents');
                         } finally {
                           setIsUploadingOfferDocs(false);
                           setLoading(false);
@@ -525,7 +541,11 @@ const ApplicationView = () => {
                       }}
                       style={{ backgroundColor: '#003A8F', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 'none', boxShadow: '0 6px 18px rgba(0,58,143,0.12)', transition: 'transform 0.12s ease' }}
                     >
-                      {isUploadingOfferDocs ? (offerAffidavitFile && offerPersonalFormFile ? 'Uploading all documents...' : 'Uploading...') : (offerAffidavitFile && offerPersonalFormFile ? 'Upload All Documents' : 'Upload Signed Documents')}
+                      {(() => {
+                        const hasAny = offerAffidavitFile || offerPersonalFormFile || Object.values(additionalFiles).some(f => !!f);
+                        if (isUploadingOfferDocs) return hasAny ? 'Uploading all documents...' : 'Uploading...';
+                        return hasAny ? 'Upload All Documents' : 'Upload Documents';
+                      })()}
                     </button>
                   </div>
                 </div>
