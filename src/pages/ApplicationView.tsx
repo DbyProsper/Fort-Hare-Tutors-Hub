@@ -702,7 +702,7 @@ const ApplicationView = () => {
           </div>
 
           {/* Documents */}
-          <div id="documents-section" style={{ backgroundColor: '#374151', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem', color: 'white' }}>
+          <div id="documents-section" style={{ backgroundColor: '#f9f9faff', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem', color: 'white' }}>
             <div style={{ padding: '1.5rem' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 📎 Documents
