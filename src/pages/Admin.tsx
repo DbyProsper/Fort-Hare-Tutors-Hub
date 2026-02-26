@@ -55,7 +55,16 @@ interface Application {
   availability: any;
   rejection_reason: string | null;
   // Offer workflow fields (may be null for older records)
-  offer_status?: string | null;
+  offer_status?:
+    | 'NOT_SENT'
+    | 'SENT'
+    | 'ACCEPTED_AWAITING_UPLOAD'
+    | 'SIGNED_UPLOADED'
+    | 'RESUBMISSION_REQUIRED'
+    | 'VERIFIED'
+    | 'HR_SUBMITTED'
+    | 'WITHDRAWN'
+    | null;
   offer_sent_at?: string | null;
   document_rejection_reason?: string | null;
   document_rejected_at?: string | null;
@@ -214,6 +223,30 @@ const Admin = () => {
     }
   };
 
+  // withdraw an offer (either because of rejection or manual admin action)
+  const withdrawOffer = async (applicationId: string) => {
+    setIsUpdating(true);
+    setMessage('Withdrawing offer...');
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('tutor_applications')
+        .update({ offer_status: 'WITHDRAWN', offer_sent_at: null } as any)
+        .eq('id', applicationId);
+      if (error) throw error;
+      toast.success('Offer withdrawn');
+      await fetchApplications();
+      setIsDialogOpen(false);
+    } catch (err) {
+      logger.error('Error withdrawing offer documents:', err);
+      toast.error('Failed to withdraw offer');
+    } finally {
+      setIsUpdating(false);
+      setLoading(false);
+      setMessage('Loading...');
+    }
+  };
+
   const rejectOfferDocuments = async (applicationId: string, reason: string) => {
     if (!reason.trim()) {
       toast.error('Rejection reason required');
@@ -349,6 +382,9 @@ const Admin = () => {
 
       if (newStatus === 'rejected') {
         updateData.rejection_reason = rejectionReason;
+        // automatically withdraw any existing offer when an application is rejected
+        updateData.offer_status = 'WITHDRAWN';
+        updateData.offer_sent_at = null;
       }
 
       const { error } = await supabase
@@ -697,13 +733,13 @@ const Admin = () => {
                       </Badge>
                       {/* Offer status badge (if any) */}
                       {app.offer_status && (
-                        <Badge variant="outline">{String(app.offer_status)}</Badge>
+                        <Badge variant="outline" className={app.offer_status === 'WITHDRAWN' ? 'text-destructive' : ''}>{String(app.offer_status)}</Badge>
                       )}
                       <span className="text-sm text-muted-foreground hidden md:block">
                         {app.submitted_at && new Date(app.submitted_at).toLocaleDateString('en-ZA')}
                       </span>
                       {/* Send Offer button for approved applicants */}
-                      {app.status === 'approved' && (
+                      {app.status === 'approved' && !['SENT','ACCEPTED_AWAITING_UPLOAD','SIGNED_UPLOADED','RESUBMISSION_REQUIRED','VERIFIED','HR_SUBMITTED','WITHDRAWN'].includes(app.offer_status || '') && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -714,6 +750,20 @@ const Admin = () => {
                           }}
                         >
                           Send Offer
+                        </Button>
+                      )}
+                      {/* Withdraw offer button if one has been issued */}
+                      {app.offer_status && ['SENT','ACCEPTED_AWAITING_UPLOAD','RESUBMISSION_REQUIRED','SIGNED_UPLOADED','VERIFIED'].includes(app.offer_status) && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!confirm(`Withdraw offer for ${app.full_name}?`)) return;
+                            withdrawOffer(app.id);
+                          }}
+                        >
+                          Withdraw
                         </Button>
                       )}
                       <ChevronRight className="w-5 h-5 text-muted-foreground" />
@@ -825,35 +875,14 @@ const Admin = () => {
                   </p>
                 </div>
 
-                {/* Documents */}
-                <div>
-                  <h4 className="font-semibold mb-3">Documents</h4>
-                  <div className="space-y-2">
-                    {documents.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No documents uploaded</p>
-                    ) : (
-                      documents.map(doc => (
-                        <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm">{doc.file_name}</span>
-                            <Badge variant="outline" className="text-xs">{doc.document_type.replace('_', ' ')}</Badge>
-                          </div>
-                          <Button variant="ghost" size="sm" onClick={() => downloadDocument(doc)}>
-                            <Download className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  {/* Offer document verification panel */}
-                  {documents.some(d => d.document_type === 'offer_affidavit' || d.document_type === 'offer_personal_info') && (
+                {/* offer-related and application documents are listed below */}
+                {/* Offer document verification panel (now shows every uploaded file) */}
+                  {documents.length > 0 && (
                     <div className="mt-4 p-4 border rounded">
-                      <h5 className="font-semibold">Offer Documents</h5>
-                      <p className="text-sm text-muted-foreground mb-2">Uploaded offer acceptance documents</p>
+                      <h5 className="font-semibold">All Uploaded Documents</h5>
+                      <p className="text-sm text-muted-foreground mb-2">Includes original application files plus any offer‑related documents</p>
                       <div className="space-y-2">
-                        {documents.filter(d => d.document_type === 'offer_affidavit' || d.document_type === 'offer_personal_info').map(d => (
+                        {documents.map(d => (
                           <div key={d.id} className="flex items-center justify-between p-2 border rounded">
                             <div className="flex items-center gap-2">
                               <FileText className="w-4 h-4 text-muted-foreground" />
@@ -894,6 +923,12 @@ const Admin = () => {
                               </div>
                             )}
                           </>
+                        )}
+                        {/* allow manual withdrawal regardless of verify/resubmit state */}
+                        {selectedApplication.offer_status && selectedApplication.offer_status !== 'WITHDRAWN' && selectedApplication.offer_status !== 'NOT_SENT' && (
+                          <Button variant="outline" onClick={() => withdrawOffer(selectedApplication!.id)} disabled={isUpdating}>
+                            Withdraw Offer
+                          </Button>
                         )}
                       </div>
                     </div>

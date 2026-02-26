@@ -55,6 +55,8 @@ node supabase/functions/process_offer_reminders/index.js
 9) Post-run checks
 - Verify that when `send_offer_email` is invoked (either via the Admin UI button or by calling the Edge Function), the `tutor_applications` row for that applicant updates:
   - `offer_status` => `SENT`
+- new value `WITHDRAWN` can be assigned when an offer is pulled back by an admin or when an application is rejected (see migration 20260226_add_withdrawn_offer_status.sql).
+- migration also installs a trigger so that any change of `status` to `rejected` automatically updates `offer_status` to `WITHDRAWN` and clears the timestamp.
   - `offer_sent_at` => timestamp
 
 - Verify applicant sees instructions and can upload signed PDFs (these are stored in `application-documents` and `application_documents` table is populated).

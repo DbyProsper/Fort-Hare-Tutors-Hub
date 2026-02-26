@@ -271,7 +271,7 @@ const ApplicationView = () => {
       <header style={{ backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '1rem', textDecoration: 'none' }}>
               <div style={{ width: '40px', height: '40px', backgroundColor: '#3b82f6', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <UFHLogo />
               </div>
@@ -279,7 +279,7 @@ const ApplicationView = () => {
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1f2937' }}>UFH Tutors</h1>
                 <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>University of Fort Hare</p>
               </div>
-            </div>
+            </Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Welcome, {user?.user_metadata?.full_name || user?.email}</span>
               <button 
@@ -292,10 +292,24 @@ const ApplicationView = () => {
           </div>
         </div>
             {/* Offer Documents (Applicant Upload / Instructions) */}
+            {application.offer_status === 'WITHDRAWN' && (
+              <div style={{ backgroundColor: '#fee2e2', borderRadius: '0.5rem', padding: '1rem', marginBottom: '2rem' }}>
+                <p style={{ color: '#b91c1c', margin: 0 }}>Your offer has been withdrawn by the administrator.</p>
+              </div>
+            )}
             {(application.offer_status === 'SENT' || application.offer_status === 'RESUBMISSION_REQUIRED') && (
               <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
                 <div style={{ padding: '1.5rem' }}>
-                  <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem' }}>Offer Acceptance Documents</h2>
+                  <h2
+                    style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem', cursor: 'pointer' }}
+                    onClick={() => {
+                      const el = document.getElementById('documents-section');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    title="Click to jump to required documents"
+                  >
+                    Offer Acceptance Documents
+                  </h2>
                   {application.offer_status === 'RESUBMISSION_REQUIRED' && (
                     <div style={{ marginBottom: '1rem', padding: '0.75rem', border: '1px solid #fde68a', borderRadius: '0.375rem' }}>
                       <p style={{ color: '#92400e' }}>Your documents were rejected: {application.document_rejection_reason}</p>
@@ -355,13 +369,21 @@ const ApplicationView = () => {
                       <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferPersonalFormFile(e.target.files?.[0] || null)} />
                     </div>
                   </div>
+                  <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '1rem' }}>
+                    Make sure the file names clearly describe the document (e.g. "Affidavit_Signed.pdf").
+                  </p>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <button
                       disabled={isUploadingOfferDocs}
                       onClick={async () => {
+                        // if no new files selected, allow if there are already uploaded offer docs
                         if (!offerAffidavitFile && !offerPersonalFormFile) {
-                          toast.error('Please choose at least one PDF to upload');
-                          return;
+                          const hasAff = uploadedDocuments.some(d => d.document_type === 'offer_affidavit');
+                          const hasPer = uploadedDocuments.some(d => d.document_type === 'offer_personal_info');
+                          if (!hasAff && !hasPer) {
+                            toast.error('Please choose at least one PDF to upload');
+                            return;
+                          }
                         }
                         setIsUploadingOfferDocs(true);
                         setMessage('Uploading signed documents...');
@@ -572,12 +594,14 @@ const ApplicationView = () => {
           </div>
 
           {/* Documents */}
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
+          <div id="documents-section" style={{ backgroundColor: '#374151', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem', color: 'white' }}>
             <div style={{ padding: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 📎 Documents
               </h2>
-              <p style={{ color: '#6b7280', marginBottom: '1rem' }}>Required documents for your application</p>
+              <p style={{ color: '#d1d5db', marginBottom: '1rem' }}>
+                Required documents for your application – please give each file a descriptive name (e.g. "ID_Copy.pdf") so administrators can identify them easily.
+              </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {REQUIRED_DOCUMENTS.map((doc) => {
                   const uploaded = uploadedDocuments.find(d => d.document_type === doc.type);
