@@ -215,11 +215,23 @@ const Admin = () => {
     setMessage('Withdrawing offer...');
     setLoading(true);
     try {
-      const { error } = await supabase
+      let { error } = await supabase
         .from('tutor_applications')
         .update({ offer_status: 'WITHDRAWN', offer_withdrawn_at: new Date().toISOString() } as any)
         .eq('id', applicationId);
-      if (error) throw error;
+      if (error) {
+        // if the schema cache doesn't know about the column, try again without it
+        if (error.message && error.message.includes("offer_withdrawn_at")) {
+          logger.warn('Retrying withdrawOffer without offer_withdrawn_at');
+          const { error: retryErr } = await supabase
+            .from('tutor_applications')
+            .update({ offer_status: 'WITHDRAWN' } as any)
+            .eq('id', applicationId);
+          if (retryErr) throw retryErr;
+        } else {
+          throw error;
+        }
+      }
 
       await createAuditLog(
         applicationId,
