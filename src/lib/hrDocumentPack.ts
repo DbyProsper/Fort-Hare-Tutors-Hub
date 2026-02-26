@@ -32,10 +32,13 @@ export const fetchApplicationDocuments = async (applicationId: string): Promise<
     };
 
     // Return all documents. If a document type is recognised map to a friendly label,
-    // otherwise use the uploaded file name so admins can identify unknown uploads.
+    // otherwise fall back to the uploaded file name or a prettified type string.
     return (data || []).map(doc => ({
       type: doc.document_type,
-      label: documentMap[doc.document_type] || doc.file_name || doc.document_type,
+      label:
+        documentMap[doc.document_type] ||
+        doc.file_name ||
+        doc.document_type.replace(/_/g, ' '),
       file_path: doc.file_path,
       file_name: doc.file_name
     }));

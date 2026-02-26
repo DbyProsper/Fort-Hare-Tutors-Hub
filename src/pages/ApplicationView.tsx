@@ -292,6 +292,11 @@ const ApplicationView = () => {
           </div>
         </div>
             {/* Offer Documents (Applicant Upload / Instructions) */}
+            {application.offer_status === 'WITHDRAWN' && (
+              <div style={{ backgroundColor: '#fee2e2', borderRadius: '0.5rem', padding: '1rem', marginBottom: '2rem' }}>
+                <p style={{ color: '#b91c1c', margin: 0 }}>Your offer has been withdrawn by the administrator.</p>
+              </div>
+            )}
             {(application.offer_status === 'SENT' || application.offer_status === 'RESUBMISSION_REQUIRED') && (
               <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem', overflow: 'hidden' }}>
                 <div style={{ 
@@ -344,6 +349,16 @@ const ApplicationView = () => {
                   </div>
                 </div>
                 <div style={{ padding: '1.5rem' }}>
+                  <h2
+                    style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem', cursor: 'pointer' }}
+                    onClick={() => {
+                      const el = document.getElementById('documents-section');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    title="Click to jump to required documents"
+                  >
+                    Offer Acceptance Documents
+                  </h2>
                   {application.offer_status === 'RESUBMISSION_REQUIRED' && (
                     <div style={{ marginBottom: '1rem', padding: '0.75rem', border: '1px solid #fde68a', borderRadius: '0.375rem', borderLeft: '4px solid #003A8F' }}>
                       <p style={{ color: '#92400e' }}>Your documents were rejected: {application.document_rejection_reason}</p>
@@ -442,13 +457,21 @@ const ApplicationView = () => {
                       <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                   </div>
+                  <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '1rem' }}>
+                    Make sure the file names clearly describe the document (e.g. "Affidavit_Signed.pdf").
+                  </p>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <button
                       disabled={isUploadingOfferDocs}
                       onClick={async () => {
+                        // if no new files selected, allow if there are already uploaded offer docs
                         if (!offerAffidavitFile && !offerPersonalFormFile) {
-                          toast.error('Please choose at least one PDF to upload');
-                          return;
+                          const hasAff = uploadedDocuments.some(d => d.document_type === 'offer_affidavit');
+                          const hasPer = uploadedDocuments.some(d => d.document_type === 'offer_personal_info');
+                          if (!hasAff && !hasPer) {
+                            toast.error('Please choose at least one PDF to upload');
+                            return;
+                          }
                         }
                         setIsUploadingOfferDocs(true);
                         setMessage('Uploading signed documents...');
@@ -659,12 +682,14 @@ const ApplicationView = () => {
           </div>
 
           {/* Documents */}
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
+          <div id="documents-section" style={{ backgroundColor: '#374151', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem', color: 'white' }}>
             <div style={{ padding: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 📎 Documents
               </h2>
-              <p style={{ color: '#6b7280', marginBottom: '1rem' }}>Required documents for your application</p>
+              <p style={{ color: '#d1d5db', marginBottom: '1rem' }}>
+                Required documents for your application – please give each file a descriptive name (e.g. "ID_Copy.pdf") so administrators can identify them easily.
+              </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {REQUIRED_DOCUMENTS.map((doc) => {
                   const uploaded = uploadedDocuments.find(d => d.document_type === doc.type);

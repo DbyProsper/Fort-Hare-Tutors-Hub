@@ -60,7 +60,16 @@ interface Application {
   availability: any;
   rejection_reason: string | null;
   // Offer workflow fields (may be null for older records)
-  offer_status?: string | null;
+  offer_status?:
+    | 'NOT_SENT'
+    | 'SENT'
+    | 'ACCEPTED_AWAITING_UPLOAD'
+    | 'SIGNED_UPLOADED'
+    | 'RESUBMISSION_REQUIRED'
+    | 'VERIFIED'
+    | 'HR_SUBMITTED'
+    | 'WITHDRAWN'
+    | null;
   offer_sent_at?: string | null;
   document_rejection_reason?: string | null;
   document_rejected_at?: string | null;
@@ -301,6 +310,7 @@ const Admin = () => {
     }
   };
 
+
   const rejectOfferDocuments = async (applicationId: string, reason: string) => {
     if (!reason.trim()) {
       toast.error('Rejection reason required');
@@ -533,6 +543,9 @@ const Admin = () => {
 
       if (newStatus === 'rejected') {
         updateData.rejection_reason = rejectionReason;
+        // automatically withdraw any existing offer when an application is rejected
+        updateData.offer_status = 'WITHDRAWN';
+        updateData.offer_sent_at = null;
       }
 
       const { error } = await supabase
@@ -903,13 +916,13 @@ const Admin = () => {
                       </Badge>
                       {/* Offer status badge (if any) */}
                       {app.offer_status && (
-                        <Badge variant="outline">{String(app.offer_status)}</Badge>
+                        <Badge variant="outline" className={app.offer_status === 'WITHDRAWN' ? 'text-destructive' : ''}>{String(app.offer_status)}</Badge>
                       )}
                       <span className="text-sm text-muted-foreground hidden md:block">
                         {app.submitted_at && new Date(app.submitted_at).toLocaleDateString('en-ZA')}
                       </span>
                       {/* Send Offer button for approved applicants */}
-                      {app.status === 'approved' && (
+                      {app.status === 'approved' && !['SENT','ACCEPTED_AWAITING_UPLOAD','SIGNED_UPLOADED','RESUBMISSION_REQUIRED','VERIFIED','HR_SUBMITTED','WITHDRAWN'].includes(app.offer_status || '') && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -920,6 +933,20 @@ const Admin = () => {
                           }}
                         >
                           Send Offer
+                        </Button>
+                      )}
+                      {/* Withdraw offer button if one has been issued */}
+                      {app.offer_status && ['SENT','ACCEPTED_AWAITING_UPLOAD','RESUBMISSION_REQUIRED','SIGNED_UPLOADED','VERIFIED'].includes(app.offer_status) && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!confirm(`Withdraw offer for ${app.full_name}?`)) return;
+                            withdrawOffer(app.id);
+                          }}
+                        >
+                          Withdraw
                         </Button>
                       )}
                       <ChevronRight className="w-5 h-5 text-muted-foreground" />
