@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import * as pdfjsLib from 'pdfjs-dist';
+import { PDFDocument } from 'pdf-lib';
 
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -169,33 +170,37 @@ export const mergeDocumentsIntoPDF = async (
   dateVerified: string
 ): Promise<Blob | null> => {
   try {
-    // For browser-based PDF merging, we need a library like pdf-lib or pdfkit-browserify
-    // Since those aren't in the dependencies, we'll create a simplified approach
-    // that concatenates PDFs using a server-side function or creates a ZIP
+    // create a new PDF that will contain all pages
+    const mergedPdf = await PDFDocument.create();
 
-    logger.warn('Full PDF merge requires pdf-lib. Creating downloadable pack info instead.');
+    // optionally generate and prepend a cover page
+    const coverBlob = await generateCoverPagePDF(studentNumber, fullName, department, applicationId, dateVerified);
+    if (coverBlob) {
+      const coverBytes = await coverBlob.arrayBuffer();
+      const coverDoc = await PDFDocument.load(coverBytes);
+      const coverPages = await mergedPdf.copyPages(coverDoc, coverDoc.getPageIndices());
+      coverPages.forEach(p => mergedPdf.addPage(p));
+    }
 
-    // Create a JSON manifest that can be processed server-side
-    const manifest = {
-      studentNumber,
-      fullName,
-      department,
-      applicationId,
-      dateVerified,
-      documents: documents.map(d => ({
-        type: d.type,
-        label: d.label,
-        fileName: d.file_name,
-        filePath: d.file_path
-      })),
-      generatedAt: new Date().toISOString()
-    };
+    // iterate over each document and merge its pages
+    for (const doc of documents) {
+      try {
+        const { data, error } = await supabase.storage
+          .from('application-documents')
+          .download(doc.file_path);
+        if (error) throw error;
+        const bytes = await data.arrayBuffer();
+        const pdf = await PDFDocument.load(bytes);
+        const copied = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+        copied.forEach(p => mergedPdf.addPage(p));
+      } catch (e) {
+        logger.error('Failed to fetch or merge document', doc.file_path, e);
+        // continue with others
+      }
+    }
 
-    const blob = new Blob([JSON.stringify(manifest, null, 2)], {
-      type: 'application/json'
-    });
-
-    return blob;
+    const mergedBytes = await mergedPdf.save();
+    return new Blob([mergedBytes], { type: 'application/pdf' });
   } catch (err) {
     logger.error('Error merging documents:', err);
     return null;
