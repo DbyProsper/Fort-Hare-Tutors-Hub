@@ -24,6 +24,7 @@ import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
+import { mergeDocumentsIntoPDF } from '@/lib/hrDocumentPack';
 
 interface UploadedDocument {
   id?: string;
@@ -92,6 +93,7 @@ const ApplicationView = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [application, setApplication] = useState<any>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
+  const [docsComplete, setDocsComplete] = useState(false);
   const [offerAffidavitFile, setOfferAffidavitFile] = useState<File | null>(null);
   const [offerPersonalFormFile, setOfferPersonalFormFile] = useState<File | null>(null);
   const [isUploadingOfferDocs, setIsUploadingOfferDocs] = useState(false);
@@ -215,6 +217,16 @@ const ApplicationView = () => {
     if (!user || !id) return;
     loadApplication();
 
+    // compute document completeness on load and when documents change
+  }, [user, id]);
+
+  useEffect(() => {
+    const required = ['offer_affidavit','offer_personal_info','certified_id','proof_of_registration'];
+    const types = uploadedDocuments.map(d => d.document_type);
+    setDocsComplete(required.every(t => types.includes(t)));
+  }, [uploadedDocuments]);
+
+  useEffect(() => {
     // Fallback timeout in case loading gets stuck
     loadingTimeoutRef.current = setTimeout(() => {
       logger.log('Loading timeout reached, showing error');
@@ -547,6 +559,45 @@ const ApplicationView = () => {
                         return hasAny ? 'Upload All Documents' : 'Upload Documents';
                       })()}
                     </button>
+                    {docsComplete && (
+                      <button
+                        disabled={isUploadingOfferDocs}
+                        onClick={async () => {
+                          try {
+                            const docs = uploadedDocuments.map(d => ({
+                              type: d.document_type,
+                              label: d.file_name,
+                              file_path: d.file_path,
+                              file_name: d.file_name
+                            }));
+                            const blob = await mergeDocumentsIntoPDF(
+                              docs,
+                              application.student_number,
+                              application.full_name,
+                              application.department,
+                              application.id,
+                              new Date().toLocaleDateString()
+                            );
+                            if (blob) {
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `HR_Pack_${application.id}.pdf`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              URL.revokeObjectURL(url);
+                            }
+                          } catch (err) {
+                            logger.error('Error generating student HR pack:', err);
+                            toast.error('Failed to create HR pack');
+                          }
+                        }}
+                        style={{ backgroundColor: '#003A8F', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 'none', boxShadow: '0 6px 18px rgba(0,58,143,0.12)', transition: 'transform 0.12s ease', marginLeft: '1rem' }}
+                      >
+                        Download HR Pack
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
