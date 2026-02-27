@@ -147,6 +147,26 @@ const Admin = () => {
     }
   }, [isAdmin]);
 
+  // subscribe to new messages so admin list updates live
+  useEffect(() => {
+    if (!isAdmin) return;
+    const channel = supabase
+      .channel('public:messages')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+        const msg = payload.new as MessageRow;
+        if (msg.sender_role === 'STUDENT') {
+          setAppUnreadCounts(prev => ({
+            ...prev,
+            [msg.application_id]: (prev[msg.application_id] || 0) + 1,
+          }));
+        }
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isAdmin]);
+
   const fetchApplications = async () => {
     setMessage('Loading applications...');
     setLoading(true);
@@ -1027,7 +1047,10 @@ University of Fort Hare`;
                         <p className="font-medium flex items-center">
                           {app.full_name}
                           {appUnreadCounts[app.id] > 0 && (
-                            <span className="ml-2 w-2 h-2 rounded-full bg-destructive inline-block" />
+                            <>
+                              <span className="ml-2 w-2 h-2 rounded-full bg-destructive inline-block" />
+                              <Badge className="ml-1">{appUnreadCounts[app.id]}</Badge>
+                            </>
                           )}
                         </p>
                         <p className="text-sm text-muted-foreground">{app.student_number} • {app.faculty}</p>

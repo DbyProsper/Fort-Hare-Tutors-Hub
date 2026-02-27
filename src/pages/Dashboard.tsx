@@ -200,10 +200,15 @@ const Dashboard = () => {
           </Link>
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={() => {
-              if (application && application.id) {
+              if (!application || !application.id) {
+                toast.error('No application available');
+                return;
+              }
+              // if user has only draft, open the application view, otherwise go to general messages page
+              if (application.status === 'draft') {
                 navigate(`/application/${application.id}`, { state: { openMessages: true } });
               } else {
-                toast.error('No application available');
+                navigate('/messages');
               }
             }} className="gap-2">
               <MessageSquare className="w-4 h-4" />

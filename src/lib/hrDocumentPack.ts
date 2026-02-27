@@ -11,13 +11,14 @@ export interface DocumentForPack {
   label: string;
   file_path: string;
   file_name: string;
+  mime_type?: string;
 }
 
 export const fetchApplicationDocuments = async (applicationId: string): Promise<DocumentForPack[]> => {
   try {
     const { data, error } = await supabase
       .from('application_documents')
-      .select('document_type, file_name, file_path')
+      .select('document_type, file_name, file_path, mime_type')
       .eq('application_id', applicationId);
 
     if (error) throw error;
@@ -41,7 +42,8 @@ export const fetchApplicationDocuments = async (applicationId: string): Promise<
         doc.file_name ||
         doc.document_type.replace(/_/g, ' '),
       file_path: doc.file_path,
-      file_name: doc.file_name
+      file_name: doc.file_name,
+      mime_type: doc.mime_type || ''
     }));
   } catch (err) {
     logger.error('Error fetching application documents:', err);

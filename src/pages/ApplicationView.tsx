@@ -296,6 +296,8 @@ const ApplicationView = () => {
     // If navigation requested messages open, open once
     if (application && (location as any)?.state?.openMessages) {
       setShowMessagesPanel(true);
+      const el = document.getElementById('messages-section');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
       try {
         // Try to clear navigation state to avoid re-opening on back/forward
         const s = { ...(window.history.state || {}), usr: null };
@@ -366,7 +368,11 @@ const ApplicationView = () => {
             </Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Welcome, {user?.user_metadata?.full_name || user?.email}</span>
-              <button onClick={() => setShowMessagesPanel(true)} title="Messages" style={{ backgroundColor: 'transparent', border: '1px solid #d1d5db', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button onClick={() => {
+                setShowMessagesPanel(true);
+                const el = document.getElementById('messages-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }} title="Messages" style={{ backgroundColor: 'transparent', border: '1px solid #d1d5db', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <MessageSquare size={16} />
                 {unreadCount > 0 && <span style={{ background: '#dc2626', color: 'white', padding: '2px 6px', borderRadius: '12px', fontSize: '0.75rem' }}>{unreadCount}</span>}
               </button>
@@ -949,7 +955,7 @@ const ApplicationView = () => {
           </div>
 
           {showMessagesPanel && (
-            <div style={{ marginTop: '2rem', backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '1.5rem' }}>
+            <div id="messages-section" style={{ marginTop: '2rem', backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937' }}>Messages</h2>
                 <button style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }} onClick={() => setShowMessagesPanel(false)}>×</button>

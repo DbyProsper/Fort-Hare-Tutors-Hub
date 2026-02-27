@@ -76,6 +76,15 @@ const AdminDocuments = () => {
     try {
       // load documents and merge into single PDF using our helper
       const docs = await fetchApplicationDocuments(appId);
+      // drop anything that isn't a PDF (pdf-lib can't parse other types)
+      const pdfDocs = docs.filter(d => d.file_name?.toLowerCase().endsWith('.pdf'));
+      if (pdfDocs.length === 0) {
+        toast.error('No PDF documents available to include in the HR pack');
+        return;
+      }
+      if (pdfDocs.length < docs.length) {
+        toast.warning('Some non‑PDF files were skipped when generating the pack');
+      }
       // need application metadata to create cover page
       const { data: app, error: appErr } = await supabase
         .from('tutor_applications')
@@ -84,7 +93,7 @@ const AdminDocuments = () => {
         .single();
       if (appErr) throw appErr;
       const blob = await mergeDocumentsIntoPDF(
-        docs,
+        pdfDocs,
         app.student_number,
         app.full_name,
         app.department,
