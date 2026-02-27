@@ -268,6 +268,42 @@ export type Database = {
         }
         Relationships: []
       }
+      messages: {
+        Row: {
+          id: string;
+          application_id: string;
+          sender_id: string;
+          sender_role: 'ADMIN' | 'STUDENT';
+          receiver_id: string;
+          subject: string | null;
+          message_body: string;
+          is_read: boolean;
+          created_at: string;
+        }
+        Insert: {
+          id?: string;
+          application_id: string;
+          sender_id: string;
+          sender_role: 'ADMIN' | 'STUDENT';
+          receiver_id: string;
+          subject?: string | null;
+          message_body: string;
+          is_read?: boolean;
+          created_at?: string;
+        }
+        Update: {
+          id?: string;
+          application_id?: string;
+          sender_id?: string;
+          sender_role?: 'ADMIN' | 'STUDENT';
+          receiver_id?: string;
+          subject?: string | null;
+          message_body?: string;
+          is_read?: boolean;
+          created_at?: string;
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -254,6 +254,42 @@ const Admin = () => {
     }
   };
 
+  // open mailto link with appropriate prefilled template
+  const handleEmailStudent = async (application: Application) => {
+    if (!application) return;
+    // prevent double-click by disabling via local state? outside scope, use a simple guard
+    const email = application.email || `${application.student_number}@ufh.ac.za`;
+    const subject = `Tutor Application Query - ${application.student_number}`;
+    const firstName = application.full_name.split(' ')[0] || '';
+    const body = `Dear ${firstName},
+
+I hope this email finds you well.
+
+This message is regarding your Tutor Application.
+Student Number: ${application.student_number}
+Application ID: ${application.id}
+
+[Please insert your query here.]
+
+Kind regards,
+${user?.user_metadata?.full_name || 'Admin'}
+Department of Computer Science
+University of Fort Hare`;
+
+    const mailto = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    // log audit before navigating
+    await createAuditLog(
+      application.id,
+      user?.id || '',
+      user?.email || 'Unknown Admin',
+      'EMAIL_CLIENT_OPENED',
+      'Admin initiated external email to student'
+    );
+    // open in new navigation
+    window.location.href = mailto;
+  };
+
+
   const sendOffer = async (applicationId: string) => {
     setIsSendingOffer(true);
     setMessage('Sending offer...');
@@ -969,6 +1005,17 @@ const Admin = () => {
                           Send Offer
                         </Button>
                       )}
+                      {/* Email student external button */}
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEmailStudent(app);
+                        }}
+                      >
+                        Email Student
+                      </Button>
                       {/* Withdraw offer button if one has been issued */}
                       {app.offer_status && ['SENT','ACCEPTED_AWAITING_UPLOAD','RESUBMISSION_REQUIRED','SIGNED_UPLOADED','VERIFIED'].includes(app.offer_status) && (
                         <Button
