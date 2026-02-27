@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
 import { mergeDocumentsIntoPDF } from '@/lib/hrDocumentPack';
+import { fetchMessages, sendMessage, markMessagesRead, fetchUnreadCount, MessageRow } from '@/lib/messages';
 
 interface UploadedDocument {
   id?: string;
@@ -97,6 +98,11 @@ const ApplicationView = () => {
   const [offerAffidavitFile, setOfferAffidavitFile] = useState<File | null>(null);
   const [offerPersonalFormFile, setOfferPersonalFormFile] = useState<File | null>(null);
   const [isUploadingOfferDocs, setIsUploadingOfferDocs] = useState(false);
+  const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [newMsgBody, setNewMsgBody] = useState('');
+  const [showMessagesPanel, setShowMessagesPanel] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isSendingMsg, setIsSendingMsg] = useState(false);
 
   // additional onboarding documents
   const [additionalFiles, setAdditionalFiles] = useState<Record<string, File | null>>({
@@ -139,6 +145,9 @@ const ApplicationView = () => {
 
       logger.log('Setting application data');
       setApplication(data);
+
+      // also fetch unread count
+      await loadUnreadCount();
 
       // Load documents
       logger.log('Loading documents...');
@@ -212,6 +221,28 @@ const ApplicationView = () => {
     }
   };
 
+  const loadMessages = async () => {
+    if (!application) return;
+    try {
+      const msgs = await fetchMessages(application.id);
+      setMessages(msgs);
+    } catch (err) {
+      logger.error('Error loading messages:', err);
+      setMessages([]);
+    }
+  };
+
+  const loadUnreadCount = async () => {
+    if (!application || !user?.id) return;
+    try {
+      const count = await fetchUnreadCount(application.id, user.id);
+      setUnreadCount(count);
+    } catch (err) {
+      logger.error('Error fetching unread count:', err);
+      setUnreadCount(0);
+    }
+  };
+
   useEffect(() => {
     logger.log('useEffect triggered');
     if (!user || !id) return;
@@ -242,6 +273,16 @@ const ApplicationView = () => {
       }
     };
   }, [user, id]);
+
+  useEffect(() => {
+    if (showMessagesPanel && application) {
+      loadMessages();
+      if (user?.id) {
+        markMessagesRead(application.id, user.id);
+        loadUnreadCount();
+      }
+    }
+  }, [showMessagesPanel, application, user]);
 
   // If no user, show a message
   if (!user) {
@@ -624,6 +665,22 @@ const ApplicationView = () => {
         </div>
       </div>
 
+      {unreadCount > 0 && (
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem 1rem' }}>
+          <div style={{ backgroundColor: '#e0f2fe', border: '1px solid #bae6fd', padding: '1rem 1.5rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <span style={{ color: '#0c4a6e', fontWeight: '500' }}>
+                You have {unreadCount} new message{unreadCount > 1 ? 's' : ''} regarding your application.
+              </span>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setShowMessagesPanel(true)}>
+              View Messages
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
@@ -634,7 +691,7 @@ const ApplicationView = () => {
                 ← Back to Dashboard
               </button>
             </Link>
-            {(application.status === 'draft' || application.status === 'pending') && (
+            {(application.status === 'draft' || application.status === 'pending' || application.edit_enabled) && (
               <Link to={`/application/${id}/edit`}>
                 <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#003A8F', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: 'white', textDecoration: 'none', cursor: 'pointer', fontWeight: '600', boxShadow: '0 6px 18px rgba(0,58,143,0.12)', transition: 'transform 0.12s ease' }}>
                   ✏️ Edit Application
@@ -864,6 +921,70 @@ const ApplicationView = () => {
               </div>
             </div>
           </div>
+
+          {showMessagesPanel && (
+            <div style={{ marginTop: '2rem', backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937' }}>Messages</h2>
+                <button style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }} onClick={() => setShowMessagesPanel(false)}>×</button>
+              </div>
+              {messages.length === 0 ? (
+                <p style={{ color: '#6b7280' }}>No messages yet.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {messages.map((msg) => (
+                    <div key={msg.id} style={{ border: '1px solid #e2e8f0', borderRadius: '0.375rem', padding: '1rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                        <span style={{ fontWeight: '600' }}>{msg.subject || '(no subject)'}</span>
+                        <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{new Date(msg.created_at).toLocaleString()}</span>
+                      </div>
+                      <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>From: {msg.sender_role === 'ADMIN' ? 'Administrator' : 'You'}</div>
+                      <p style={{ whiteSpace: 'pre-wrap', color: '#1f2937' }}>{msg.message_body}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ marginTop: '1.5rem' }}>
+                <textarea
+                  placeholder="Type your reply here..."
+                  value={newMsgBody}
+                  onChange={(e) => setNewMsgBody(e.target.value)}
+                  rows={4}
+                  style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: '0.375rem', padding: '0.75rem' }}
+                />
+                <div style={{ marginTop: '0.75rem', display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    disabled={isSendingMsg || !newMsgBody.trim()}
+                    onClick={async () => {
+                      if (!application || !user?.id) return;
+                      setIsSendingMsg(true);
+                      try {
+                        const ok = await sendMessage({
+                          application_id: application.id,
+                          sender_id: user.id,
+                          sender_role: 'STUDENT',
+                          receiver_id: user.id, // placeholder; unread logic handles student messages
+                          message_body: newMsgBody,
+                        });
+                        if (!ok) throw new Error('send failed');
+                        await markMessagesRead(application.id, user.id);
+                        setNewMsgBody('');
+                        await loadMessages();
+                      } catch (err) {
+                        logger.error('Error sending student message:', err);
+                        toast.error('Failed to send message');
+                      } finally {
+                        setIsSendingMsg(false);
+                      }
+                    }}
+                  >
+                    {isSendingMsg ? 'Sending...' : 'Send Reply'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

@@ -128,8 +128,10 @@ export type Database = {
           document_rejection_reason: string | null
           document_rejected_at: string | null
           hr_submitted_at: string | null
+          edit_enabled: boolean
         }
         Insert: {
+          edit_enabled?: boolean
           admin_notes?: string | null
           availability?: Json | null
           contact_number: string
@@ -171,6 +173,7 @@ export type Database = {
           document_rejection_reason?: string | null
           document_rejected_at?: string | null
           hr_submitted_at?: string | null
+          edit_enabled?: boolean
         }
         Update: {
           admin_notes?: string | null

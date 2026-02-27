@@ -23,6 +23,7 @@ import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
+import { fetchUnreadCount } from '@/lib/messages';
 
 interface Application {
   id: string;
@@ -34,6 +35,7 @@ interface Application {
   full_name: string;
   degree_program: string;
   faculty: string;
+  edit_enabled?: boolean;
 }
 
 const statusConfig = {
@@ -74,6 +76,7 @@ const Dashboard = () => {
   const { user, isLoading: authLoading, signOut } = useAuth();
   const { setLoading, setMessage } = useLoading();
   const [application, setApplication] = useState<Application | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -132,6 +135,15 @@ const Dashboard = () => {
       }
 
       setApplication(data);
+      // fetch unread messages count
+      if (data && user?.id) {
+        try {
+          const count = await fetchUnreadCount(data.id, user.id);
+          setUnreadCount(count);
+        } catch (err) {
+          logger.error('Error fetching unread count:', err);
+        }
+      }
       logger.log('Application loaded successfully');
     } catch (error) {
       logger.error('Unexpected error fetching application:', error);
@@ -216,6 +228,16 @@ const Dashboard = () => {
             </Alert>
           )}
 
+          {unreadCount > 0 && (
+            <Alert className="mb-6 border-2 border-blue-200 bg-blue-50">
+              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <AlertTitle className="text-blue-900">New Message</AlertTitle>
+              <AlertDescription className="text-blue-800">
+                You have {unreadCount} new message{unreadCount > 1 ? 's' : ''} regarding your application. <Link to={`/application/${application?.id}`}><Button size="sm" variant="outline">View</Button></Link>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {application ? (
             <div className="space-y-6">
               {/* Status Card */}
@@ -256,7 +278,7 @@ const Dashboard = () => {
                           View
                         </Button>
                       </Link>
-                      {(application.status === 'draft' || application.status === 'pending') && (
+                      {(application.status === 'draft' || application.status === 'pending' || application.edit_enabled) && (
                         <Link to={`/application/${application.id}/edit`}>
                           <Button size="sm" className="gap-2">
                             <Edit className="w-4 h-4" />

@@ -334,6 +334,7 @@ const EditApplication = () => {
         motivation_letter: formData.motivation_letter || '',
         status: 'draft' as const,
         updated_at: new Date().toISOString(),
+        edit_enabled: false,
       };
 
       logger.log('Application data prepared');
