@@ -125,6 +125,7 @@ const Admin = () => {
   const [newMsgBody, setNewMsgBody] = useState('');
   const [isSendingMsg, setIsSendingMsg] = useState(false);
   const [newMsgSubject, setNewMsgSubject] = useState('');
+  const [allowEdit, setAllowEdit] = useState(false);
 
   useEffect(() => {
     if (!authLoading && isAdmin !== null) {
@@ -1367,6 +1368,15 @@ University of Fort Hare`;
                       onChange={(e) => setNewMsgBody(e.target.value)}
                       className="w-full"
                     />
+                    <div className="flex items-center gap-2 mb-2">
+                      <input
+                        type="checkbox"
+                        id="allow-edit"
+                        checked={allowEdit}
+                        onChange={(e) => setAllowEdit(e.target.checked)}
+                      />
+                      <label htmlFor="allow-edit" className="text-sm">Allow student to edit application</label>
+                    </div>
                     <Button
                       className="mt-2"
                       disabled={isSendingMsg || !newMsgBody.trim()}
@@ -1383,6 +1393,11 @@ University of Fort Hare`;
                             message_body: newMsgBody,
                           });
                           if (!ok) throw new Error('send failed');
+                          // update edit_enabled flag based on checkbox
+                          await supabase
+                            .from('tutor_applications')
+                            .update({ edit_enabled: allowEdit } as any)
+                            .eq('id', selectedApplication.id);
                           await createAuditLog(
                             selectedApplication.id,
                             user?.id || '',
@@ -1392,6 +1407,7 @@ University of Fort Hare`;
                           );
                           setNewMsgBody('');
                           setNewMsgSubject('');
+                          setAllowEdit(false);
                           await fetchMessagesForApplication(selectedApplication.id);
                         } catch (err) {
                           logger.error('Error sending message:', err);
