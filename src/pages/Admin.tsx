@@ -34,9 +34,11 @@ import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
 import { createAuditLog, fetchAuditLogs, AuditLogEntry } from '@/lib/auditLog';
 import { fetchApplicationDocuments, checkDocumentsComplete, getRequiredDocumentsForPack, mergeDocumentsIntoPDF } from '@/lib/hrDocumentPack';
+import { fetchMessages, sendMessage, markMessagesRead, MessageRow } from '@/lib/messages';
 
 interface Application {
   id: string;
+  user_id: string; // needed for messaging
   full_name: string;
   student_number: string;
   email: string;
@@ -119,6 +121,10 @@ const Admin = () => {
   const [documentsComplete, setDocumentsComplete] = useState(false);
   const [isGeneratingPack, setIsGeneratingPack] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+  const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [newMsgBody, setNewMsgBody] = useState('');
+  const [isSendingMsg, setIsSendingMsg] = useState(false);
+  const [newMsgSubject, setNewMsgSubject] = useState('');
 
   useEffect(() => {
     if (!authLoading && isAdmin !== null) {
@@ -201,12 +207,27 @@ const Admin = () => {
     }
   };
 
+  const fetchMessagesForApplication = async (applicationId: string) => {
+    try {
+      const msgs = await fetchMessages(applicationId);
+      setMessages(msgs);
+    } catch (error) {
+      logger.error('Error fetching messages:', error);
+      setMessages([]);
+    }
+  };
+
   const handleViewApplication = async (application: Application) => {
     setSelectedApplication(application);
     setActiveTab('details');
     await fetchDocuments(application.id);
     await loadAuditLogs(application.id);
     await checkHRPackCompleteness(application.id);
+    await fetchMessagesForApplication(application.id);
+    // mark any messages sent to admin as read
+    if (user?.id) {
+      await markMessagesRead(application.id, user.id);
+    }
     setIsDialogOpen(true);
   };
 
@@ -1078,6 +1099,12 @@ University of Fort Hare`;
                     >
                       Audit Trail
                     </button>
+                    <button 
+                      onClick={() => setActiveTab('messages')} 
+                      className={`px-3 py-2 text-sm font-medium border-b-2 ${activeTab === 'messages' ? 'border-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                    >
+                      Messages
+                    </button>
                   </div>
                 </div>
 
@@ -1303,6 +1330,80 @@ University of Fort Hare`;
                       </div>
                     </div>
                   )}
+                </div>
+                )}
+
+                {activeTab === 'messages' && (
+                <div className="space-y-4 py-4">
+                  {messages.length === 0 ? (
+                    <p className="text-muted-foreground">No messages yet. Use the button below to start a conversation.</p>
+                  ) : (
+                    <div className="space-y-6">
+                      {messages.map((msg) => (
+                        <div key={msg.id} className="border rounded p-4 bg-white">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium">{msg.subject || '(no subject)'}</span>
+                            <span className="text-xs text-muted-foreground">{new Date(msg.created_at).toLocaleString()}</span>
+                          </div>
+                          <div className="text-sm text-muted-foreground mb-2">From: {msg.sender_role === 'ADMIN' ? 'Administrator' : 'Student'}</div>
+                          <p className="whitespace-pre-wrap">{msg.message_body}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t">
+                    <h4 className="font-semibold mb-2">New Message</h4>
+                    <input
+                      type="text"
+                      placeholder="Subject (optional)"
+                      className="w-full border rounded px-2 py-1 mb-2"
+                      value={newMsgSubject}
+                      onChange={(e) => setNewMsgSubject(e.target.value)}
+                    />
+                    <Textarea
+                      placeholder="Message body"
+                      value={newMsgBody}
+                      onChange={(e) => setNewMsgBody(e.target.value)}
+                      className="w-full"
+                    />
+                    <Button
+                      className="mt-2"
+                      disabled={isSendingMsg || !newMsgBody.trim()}
+                      onClick={async () => {
+                        if (!selectedApplication) return;
+                        setIsSendingMsg(true);
+                        try {
+                          const ok = await sendMessage({
+                            application_id: selectedApplication.id,
+                            sender_id: user?.id || '',
+                            sender_role: 'ADMIN',
+                            receiver_id: selectedApplication.user_id || '',
+                            subject: newMsgSubject || null,
+                            message_body: newMsgBody,
+                          });
+                          if (!ok) throw new Error('send failed');
+                          await createAuditLog(
+                            selectedApplication.id,
+                            user?.id || '',
+                            user?.email || 'Unknown Admin',
+                            'INTERNAL_MESSAGE_SENT',
+                            'Admin sent internal message regarding application'
+                          );
+                          setNewMsgBody('');
+                          setNewMsgSubject('');
+                          await fetchMessagesForApplication(selectedApplication.id);
+                        } catch (err) {
+                          logger.error('Error sending message:', err);
+                          toast.error('Failed to send message');
+                        } finally {
+                          setIsSendingMsg(false);
+                        }
+                      }}
+                    >
+                      {isSendingMsg ? 'Sending…' : 'Send Message'}
+                    </Button>
+                  </div>
                 </div>
                 )}
 
