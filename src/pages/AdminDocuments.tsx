@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { fetchApplicationDocuments, checkDocumentsComplete } from '@/lib/hrDocumentPack';
+import { fetchApplicationDocuments, checkDocumentsComplete, mergeDocumentsIntoPDF } from '@/lib/hrDocumentPack';
 
 const AdminDocuments = () => {
   const { user, isAdmin, isLoading: authLoading } = useAuth();
@@ -74,8 +74,36 @@ const AdminDocuments = () => {
     if (!documentsComplete) return toast.error('All required documents must be uploaded');
     setIsGenerating(true);
     try {
-      // placeholder: call existing function or endpoint in future
-      toast.success('HR pack generation started');
+      // load documents and merge into single PDF using our helper
+      const docs = await fetchApplicationDocuments(appId);
+      // need application metadata to create cover page
+      const { data: app, error: appErr } = await supabase
+        .from('tutor_applications')
+        .select('student_number, full_name, department')
+        .eq('id', appId)
+        .single();
+      if (appErr) throw appErr;
+      const blob = await mergeDocumentsIntoPDF(
+        docs,
+        app.student_number,
+        app.full_name,
+        app.department,
+        appId,
+        new Date().toLocaleDateString()
+      );
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `HR_Pack_${appId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('HR pack ready for download');
+      } else {
+        throw new Error('Failed to merge documents');
+      }
     } catch (err) {
       console.error(err);
       toast.error('Failed to generate HR pack');

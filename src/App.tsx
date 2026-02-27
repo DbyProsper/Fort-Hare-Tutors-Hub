@@ -15,6 +15,7 @@ import EditApplication from "./pages/EditApplication";
 import ApplicationView from "./pages/ApplicationView";
 import Admin from "./pages/Admin";
 import AdminDocuments from "./pages/AdminDocuments";
+import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
               <Route path="/application/:id" element={<ApplicationView />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/admin/documents" element={<AdminDocuments />} />
+                  <Route path="/messages" element={<Messages />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

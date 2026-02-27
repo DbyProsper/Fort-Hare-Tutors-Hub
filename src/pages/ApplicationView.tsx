@@ -101,6 +101,7 @@ const ApplicationView = () => {
   const [isUploadingOfferDocs, setIsUploadingOfferDocs] = useState(false);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [newMsgBody, setNewMsgBody] = useState('');
+  const [newMsgSubject, setNewMsgSubject] = useState('');
   const [showMessagesPanel, setShowMessagesPanel] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isSendingMsg, setIsSendingMsg] = useState(false);
@@ -227,6 +228,13 @@ const ApplicationView = () => {
     try {
       const msgs = await fetchMessages(application.id);
       setMessages(msgs);
+      // keep subject synced with last admin message if student hasn't set one
+      if (msgs.length) {
+        const last = msgs[msgs.length - 1];
+        if (!newMsgSubject) {
+          setNewMsgSubject(last.subject || '');
+        }
+      }
     } catch (err) {
       logger.error('Error loading messages:', err);
       setMessages([]);
@@ -964,6 +972,13 @@ const ApplicationView = () => {
               )}
 
               <div style={{ marginTop: '1.5rem' }}>
+                <input
+                  type="text"
+                  placeholder="Subject (optional)"
+                  value={newMsgSubject}
+                  onChange={(e) => setNewMsgSubject(e.target.value)}
+                  style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: '0.375rem', padding: '0.5rem', marginBottom: '0.5rem' }}
+                />
                 <textarea
                   placeholder="Type your reply here..."
                   value={newMsgBody}
@@ -978,16 +993,24 @@ const ApplicationView = () => {
                       if (!application || !user?.id) return;
                       setIsSendingMsg(true);
                       try {
-                        const ok = await sendMessage({
-                          application_id: application.id,
-                          sender_id: user.id,
-                          sender_role: 'STUDENT',
-                          receiver_id: user.id, // placeholder; unread logic handles student messages
-                          message_body: newMsgBody,
+                          // determine subject: prefer typed, else previous subject
+                          let subjectToSend = newMsgSubject;
+                          if (!subjectToSend && messages.length) {
+                            subjectToSend = messages[messages.length - 1].subject || '';
+                          }
+                          const ok = await sendMessage({
+                            application_id: application.id,
+                            sender_id: user.id,
+                            sender_role: 'STUDENT',
+                            receiver_id: application.user_id || user.id,
+                            subject: subjectToSend || null,
+                            message_body: newMsgBody,
                         });
                         if (!ok) throw new Error('send failed');
                         await markMessagesRead(application.id, user.id);
                         setNewMsgBody('');
+                          // keep subject field for future replies
+                          setNewMsgSubject(subjectToSend);
                         await loadMessages();
                       } catch (err) {
                         logger.error('Error sending student message:', err);

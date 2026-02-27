@@ -34,7 +34,7 @@ import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
 import { createAuditLog, fetchAuditLogs, AuditLogEntry } from '@/lib/auditLog';
 import { fetchApplicationDocuments, checkDocumentsComplete, getRequiredDocumentsForPack, mergeDocumentsIntoPDF } from '@/lib/hrDocumentPack';
-import { fetchMessages, sendMessage, markMessagesRead, MessageRow } from '@/lib/messages';
+import { fetchMessages, sendMessage, markMessagesRead, fetchUnreadCount, MessageRow } from '@/lib/messages';
 
 interface Application {
   id: string;
@@ -77,6 +77,7 @@ interface Application {
   document_rejected_at?: string | null;
   resubmission_count?: number | null;
   last_resubmitted_at?: string | null;
+  edit_enabled?: boolean;
 }
 
 interface Document {
@@ -126,6 +127,8 @@ const Admin = () => {
   const [isSendingMsg, setIsSendingMsg] = useState(false);
   const [newMsgSubject, setNewMsgSubject] = useState('');
   const [allowEdit, setAllowEdit] = useState(false);
+  // track unread message counts per application (for admin notifications)
+  const [appUnreadCounts, setAppUnreadCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!authLoading && isAdmin !== null) {
@@ -155,12 +158,26 @@ const Admin = () => {
         .order('submitted_at', { ascending: false });
 
       if (error) throw error;
-      setApplications((data as any[] || []).map((app: any) => ({
+      const apps = (((data as any[]) || []).map((app: any) => ({
         ...app,
         subjects_to_tutor: typeof app.subjects_to_tutor === 'string' ? app.subjects_to_tutor.split(',') : app.subjects_to_tutor || [],
         languages_spoken: typeof app.languages_spoken === 'string' ? app.languages_spoken.split(',') : app.languages_spoken || [],
         skills_competencies: typeof app.skills_competencies === 'string' ? app.skills_competencies.split(',') : app.skills_competencies || [],
       })) as Application[]);
+      setApplications(apps);
+      // after setting, load unread counts
+      if (user?.id) {
+        const counts: Record<string, number> = {};
+        await Promise.all(apps.map(async (a) => {
+          try {
+            const c = await fetchUnreadCount(a.id, user.id, true);
+            counts[a.id] = c;
+          } catch (e) {
+            counts[a.id] = 0;
+          }
+        }));
+        setAppUnreadCounts(counts);
+      }
     } catch (error) {
       logger.error('Error fetching applications:', error);
       toast.error('Failed to load applications');
@@ -212,6 +229,11 @@ const Admin = () => {
     try {
       const msgs = await fetchMessages(applicationId);
       setMessages(msgs);
+      // keep subject field in sync with latest message from admin if not explicitly changed
+      if (msgs.length) {
+        const last = msgs[msgs.length - 1];
+        setNewMsgSubject(last.subject || '');
+      }
     } catch (error) {
       logger.error('Error fetching messages:', error);
       setMessages([]);
@@ -220,6 +242,7 @@ const Admin = () => {
 
   const handleViewApplication = async (application: Application) => {
     setSelectedApplication(application);
+    setAllowEdit(application.edit_enabled || false);
     setActiveTab('details');
     await fetchDocuments(application.id);
     await loadAuditLogs(application.id);
@@ -228,6 +251,9 @@ const Admin = () => {
     // mark any messages sent to admin as read
     if (user?.id) {
       await markMessagesRead(application.id, user.id);
+      // refresh unread counters
+      const newCount = await fetchUnreadCount(application.id, user.id, true);
+      setAppUnreadCounts(prev => ({ ...prev, [application.id]: newCount }));
     }
     setIsDialogOpen(true);
   };
@@ -998,7 +1024,12 @@ University of Fort Hare`;
                         {app.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-medium">{app.full_name}</p>
+                        <p className="font-medium flex items-center">
+                          {app.full_name}
+                          {appUnreadCounts[app.id] > 0 && (
+                            <span className="ml-2 w-2 h-2 rounded-full bg-destructive inline-block" />
+                          )}
+                        </p>
                         <p className="text-sm text-muted-foreground">{app.student_number} • {app.faculty}</p>
                       </div>
                     </div>
@@ -1370,11 +1401,28 @@ University of Fort Hare`;
                     />
                     <div className="flex items-center gap-2 mb-2">
                       <input
-                        type="checkbox"
-                        id="allow-edit"
-                        checked={allowEdit}
-                        onChange={(e) => setAllowEdit(e.target.checked)}
-                      />
+                          type="checkbox"
+                          id="allow-edit"
+                          checked={allowEdit}
+                          onChange={async (e) => {
+                            const checked = e.target.checked;
+                            setAllowEdit(checked);
+                            if (selectedApplication) {
+                              try {
+                                const { error } = await supabase
+                                  .from('tutor_applications')
+                                  .update({ edit_enabled: checked } as any)
+                                  .eq('id', selectedApplication.id);
+                                if (error) throw error;
+                                // also update local copy so future sends use accurate state
+                                setSelectedApplication(prev => prev ? { ...prev, edit_enabled: checked } : prev);
+                              } catch (err) {
+                                logger.error('Error updating edit_enabled flag:', err);
+                                toast.error('Failed to update edit permission');
+                              }
+                            }
+                          }}
+                        />
                       <label htmlFor="allow-edit" className="text-sm">Allow student to edit application</label>
                     </div>
                     <Button
@@ -1406,7 +1454,7 @@ University of Fort Hare`;
                             'Admin sent internal message regarding application'
                           );
                           setNewMsgBody('');
-                          setNewMsgSubject('');
+                          // leave subject intact; it will be refreshed by fetchMessagesForApplication
                           setAllowEdit(false);
                           await fetchMessagesForApplication(selectedApplication.id);
                         } catch (err) {

@@ -100,14 +100,27 @@ export const markMessagesRead = async (applicationId: string, receiverId: string
   }
 };
 
-export const fetchUnreadCount = async (applicationId: string, receiverId: string): Promise<number> => {
+export const fetchUnreadCount = async (
+  applicationId: string,
+  receiverId: string,
+  forAdmin: boolean = false
+): Promise<number> => {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('messages')
       .select('id', { count: 'exact' })
       .eq('application_id', applicationId)
-      .eq('receiver_id', receiverId)
       .eq('is_read', false);
+
+    if (forAdmin) {
+      // count any student-originated messages regardless of receiver or messages explicitly addressed to this admin
+      query = query.or(`receiver_id.eq.${receiverId},sender_role.eq.STUDENT`);
+    } else {
+      // normal case: only count messages addressed to this receiver
+      query = query.eq('receiver_id', receiverId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       logger.error('Failed to fetch unread count:', error);

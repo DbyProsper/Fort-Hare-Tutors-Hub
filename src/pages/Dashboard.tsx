@@ -247,7 +247,7 @@ const Dashboard = () => {
               <AlertCircle className="h-4 w-4 text-blue-600" />
               <AlertTitle className="text-blue-900">New Message</AlertTitle>
               <AlertDescription className="text-blue-800">
-                You have {unreadCount} new message{unreadCount > 1 ? 's' : ''} regarding your application. <Link to={`/application/${application?.id}`}><Button size="sm" variant="outline">View</Button></Link>
+                You have {unreadCount} new message{unreadCount > 1 ? 's' : ''} regarding your application. <Link to={`/application/${application?.id}`}><Button size="sm" variant="outline">View</Button></Link> or <Link to="/messages"><Button size="sm" variant="outline">All Messages</Button></Link>
               </AlertDescription>
             </Alert>
           )}
