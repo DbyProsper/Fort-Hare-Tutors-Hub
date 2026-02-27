@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import {
   BookOpen, 
   Briefcase, 
   Upload, 
+  MessageSquare,
   CheckCircle2,
   FileText,
   LogOut,
@@ -232,6 +233,8 @@ const ApplicationView = () => {
     }
   };
 
+  const location = useLocation();
+
   const loadUnreadCount = async () => {
     if (!application || !user?.id) return;
     try {
@@ -280,6 +283,17 @@ const ApplicationView = () => {
       if (user?.id) {
         markMessagesRead(application.id, user.id);
         loadUnreadCount();
+      }
+    }
+    // If navigation requested messages open, open once
+    if (application && (location as any)?.state?.openMessages) {
+      setShowMessagesPanel(true);
+      try {
+        // Try to clear navigation state to avoid re-opening on back/forward
+        const s = { ...(window.history.state || {}), usr: null };
+        window.history.replaceState(s, '');
+      } catch (e) {
+        // ignore
       }
     }
   }, [showMessagesPanel, application, user]);
@@ -344,6 +358,10 @@ const ApplicationView = () => {
             </Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Welcome, {user?.user_metadata?.full_name || user?.email}</span>
+              <button onClick={() => setShowMessagesPanel(true)} title="Messages" style={{ backgroundColor: 'transparent', border: '1px solid #d1d5db', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <MessageSquare size={16} />
+                {unreadCount > 0 && <span style={{ background: '#dc2626', color: 'white', padding: '2px 6px', borderRadius: '12px', fontSize: '0.75rem' }}>{unreadCount}</span>}
+              </button>
               <button 
                 onClick={handleSignOut}
                 style={{ backgroundColor: 'transparent', border: '1px solid #d1d5db', padding: '0.5rem 1rem', borderRadius: '0.375rem', color: '#6b7280', cursor: 'pointer' }}
@@ -529,12 +547,10 @@ const ApplicationView = () => {
                         const hasNewAff = !!offerAffidavitFile;
                         const hasNewPer = !!offerPersonalFormFile;
                         const hasNewAdditional = Object.values(additionalFiles).some(f => !!f);
+                        // require at least one new file selected
                         if (!hasNewAff && !hasNewPer && !hasNewAdditional) {
-                          const hasAnyExisting = uploadedDocuments.length > 0;
-                          if (!hasAnyExisting) {
-                            toast.error('Please choose at least one file to upload');
-                            return;
-                          }
+                          toast.error('Please choose at least one file to upload');
+                          return;
                         }
                         setIsUploadingOfferDocs(true);
                         setMessage('Uploading documents...');
@@ -551,7 +567,9 @@ const ApplicationView = () => {
                             const path = `${id}/${docType}_${nowTs}.${extension}`;
                             const { error: storageErr } = await supabase.storage.from('application-documents').upload(path, file, { contentType: file.type });
                             if (storageErr) throw storageErr;
+                            const insertId = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
                             const insertObj: any = {
+                              id: insertId,
                               application_id: id,
                               user_id: user?.id || '',
                               document_type: docType,

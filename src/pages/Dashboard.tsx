@@ -15,7 +15,8 @@ import {
   Plus,
   Eye,
   Edit,
-  Loader2
+  Loader2,
+  MessageSquare
 } from 'lucide-react';
 import { UFHLogo } from '@/components/UFHLogo';
 import { useAuth } from '@/contexts/AuthContext';
@@ -197,10 +198,23 @@ const Dashboard = () => {
               <p className="text-xs text-muted-foreground">Student Dashboard</p>
             </div>
           </Link>
-          <Button variant="ghost" onClick={handleSignOut} className="gap-2">
-            <LogOut className="w-4 h-4" />
-            Sign Out
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={() => {
+              if (application && application.id) {
+                navigate(`/application/${application.id}`, { state: { openMessages: true } });
+              } else {
+                toast.error('No application available');
+              }
+            }} className="gap-2">
+              <MessageSquare className="w-4 h-4" />
+              Messages
+              {unreadCount > 0 && <Badge className="ml-2">{unreadCount}</Badge>}
+            </Button>
+            <Button variant="ghost" onClick={handleSignOut} className="gap-2">
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </header>
 
