@@ -59,6 +59,16 @@ export const sendMessage = async (payload: {
       return false;
     }
 
+    // optional email notification bridge
+    // we don't include the full message body for privacy
+    // this is a stub: real implementation can call an edge function or third-party service
+    try {
+      // Example: await sendEmailNotification(receiverEmail, ...)
+      logger.log('Email notification would be sent here (stub)');
+    } catch (notifyErr) {
+      logger.error('Failed to send email notification:', notifyErr);
+    }
+
     return true;
   } catch (err) {
     logger.error('Error sending message:', err);
@@ -68,12 +78,15 @@ export const sendMessage = async (payload: {
 
 export const markMessagesRead = async (applicationId: string, receiverId: string): Promise<boolean> => {
   try {
+    // mark any unread messages addressed to this receiver, and also
+    // ensure student-originated messages are marked read when either side opens the thread
     const { error } = await supabase
       .from('messages')
       .update({ is_read: true })
       .eq('application_id', applicationId)
-      .eq('receiver_id', receiverId)
-      .eq('is_read', false);
+      .eq('is_read', false)
+      // use OR clause: receiver matches OR sender_role is STUDENT
+      .or(`receiver_id.eq.${receiverId},sender_role.eq.STUDENT`);
 
     if (error) {
       logger.error('Failed to mark messages read:', error);
