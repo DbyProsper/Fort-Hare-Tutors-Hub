@@ -190,8 +190,8 @@ const EditApplication = () => {
         return;
       }
 
-      // Check if application can be edited
-      if (data.status !== 'draft' && data.status !== 'pending') {
+      // Check if application can be edited (DB-driven)
+      if (!(data.is_editable === true || data.edit_enabled === true)) {
         toast.error('This application cannot be edited');
         navigate('/dashboard');
         return;
@@ -483,6 +483,9 @@ const EditApplication = () => {
       return;
     }
 
+    // Debug info to help diagnose RLS/access issues
+    console.log('Application editable:', application?.is_editable, 'edit_enabled:', application?.edit_enabled);
+    console.log('Current user:', user?.id);
     setMessage('Submitting your application...');
     setLoading(true);
     try {
@@ -511,6 +514,8 @@ const EditApplication = () => {
         motivation_letter: data.motivation_letter,
         status: 'pending',
         submitted_at: new Date().toISOString(),
+        // ensure editing is disabled immediately after submission
+        is_editable: false,
         updated_at: new Date().toISOString(),
       } as any;
 

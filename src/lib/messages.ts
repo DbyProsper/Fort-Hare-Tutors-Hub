@@ -6,6 +6,7 @@ export interface MessageRow {
   application_id: string;
   sender_id: string;
   sender_role: 'ADMIN' | 'STUDENT';
+  receiver_role: 'ADMIN' | 'STUDENT';
   receiver_id: string;
   subject: string | null;
   message_body: string;
@@ -42,6 +43,8 @@ export const sendMessage = async (payload: {
   message_body: string;
 }): Promise<boolean> => {
   try {
+    // derive receiver_role deterministically from sender_role
+    const receiver_role = payload.sender_role === 'STUDENT' ? 'ADMIN' : 'STUDENT';
     const { error } = await supabase
       .from('messages')
       .insert({
@@ -49,6 +52,7 @@ export const sendMessage = async (payload: {
         sender_id: payload.sender_id,
         sender_role: payload.sender_role,
         receiver_id: payload.receiver_id,
+        receiver_role,
         subject: payload.subject || null,
         message_body: payload.message_body,
         is_read: false,
@@ -76,17 +80,30 @@ export const sendMessage = async (payload: {
   }
 };
 
-export const markMessagesRead = async (applicationId: string, receiverId: string): Promise<boolean> => {
+export const markMessagesRead = async (applicationId: string, receiverId: string, forAdmin: boolean = false): Promise<boolean> => {
   try {
-    // mark any unread messages addressed to this receiver, and also
-    // ensure student-originated messages are marked read when either side opens the thread
+    // If admin is opening the application conversation, mark any messages where receiver_role = 'ADMIN' for that application
+    if (forAdmin) {
+      const { error } = await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('application_id', applicationId)
+        .eq('receiver_role', 'ADMIN')
+        .eq('is_read', false);
+      if (error) {
+        logger.error('Failed to mark admin messages read:', error);
+        return false;
+      }
+      return true;
+    }
+
+    // Default: mark unread messages explicitly addressed to this receiver for the given application
     const { error } = await supabase
       .from('messages')
       .update({ is_read: true })
       .eq('application_id', applicationId)
       .eq('is_read', false)
-      // use OR clause: receiver matches OR sender_role is STUDENT
-      .or(`receiver_id.eq.${receiverId},sender_role.eq.STUDENT`);
+      .eq('receiver_id', receiverId);
 
     if (error) {
       logger.error('Failed to mark messages read:', error);
@@ -106,27 +123,23 @@ export const fetchUnreadCount = async (
   forAdmin: boolean = false
 ): Promise<number> => {
   try {
-    let query = supabase
-      .from('messages')
-      .select('id', { count: 'exact' })
-      .eq('application_id', applicationId)
-      .eq('is_read', false);
-
+    // Admin unread count should be derived from DB truth: messages where receiver_role = 'ADMIN' and is_read = false
+    let query = supabase.from('messages').select('id', { count: 'exact' }).eq('is_read', false);
     if (forAdmin) {
-      // count any student-originated messages regardless of receiver or messages explicitly addressed to this admin
-      query = query.or(`receiver_id.eq.${receiverId},sender_role.eq.STUDENT`);
+      query = query.eq('receiver_role', 'ADMIN');
+      // if applicationId provided, narrow to application
+      if (applicationId) query = query.eq('application_id', applicationId);
     } else {
-      // normal case: only count messages addressed to this receiver
+      // normal case: count messages explicitly addressed to this receiver for this application
       query = query.eq('receiver_id', receiverId);
+      if (applicationId) query = query.eq('application_id', applicationId);
     }
 
     const { data, error } = await query;
-
     if (error) {
       logger.error('Failed to fetch unread count:', error);
       return 0;
     }
-
     return (data as any[]).length || 0;
   } catch (err) {
     logger.error('Error fetching unread count:', err);

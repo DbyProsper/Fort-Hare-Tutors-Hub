@@ -289,8 +289,10 @@ const ApplicationView = () => {
     if (showMessagesPanel && application) {
       loadMessages();
       if (user?.id) {
-        markMessagesRead(application.id, user.id);
-        loadUnreadCount();
+        (async () => {
+          await markMessagesRead(application.id, user.id, false);
+          loadUnreadCount();
+        })();
       }
     }
     // If navigation requested messages open, open once
@@ -723,7 +725,7 @@ const ApplicationView = () => {
                 ← Back to Dashboard
               </button>
             </Link>
-            {(application.status === 'draft' || application.status === 'pending' || application.edit_enabled) && (
+            {((application as any).is_editable === true || application.edit_enabled) && (
               <Link to={`/application/${id}/edit`}>
                 <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#003A8F', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: 'white', textDecoration: 'none', cursor: 'pointer', fontWeight: '600', boxShadow: '0 6px 18px rgba(0,58,143,0.12)', transition: 'transform 0.12s ease' }}>
                   ✏️ Edit Application
@@ -1013,7 +1015,7 @@ const ApplicationView = () => {
                             message_body: newMsgBody,
                         });
                         if (!ok) throw new Error('send failed');
-                        await markMessagesRead(application.id, user.id);
+                        await markMessagesRead(application.id, user.id, false);
                         setNewMsgBody('');
                           // keep subject field for future replies
                           setNewMsgSubject(subjectToSend);

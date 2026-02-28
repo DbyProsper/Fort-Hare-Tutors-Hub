@@ -132,7 +132,7 @@ const Messages = () => {
       const msgs = await fetchMessages(appId);
       setCurrentMessages(msgs);
       if (user?.id) {
-        await markMessagesRead(appId, user.id);
+        await markMessagesRead(appId, user.id, !!isAdmin);
       }
       if (msgs.length) {
         setNewMsgSubject(msgs[msgs.length - 1].subject || '');

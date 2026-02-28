@@ -129,9 +129,11 @@ export type Database = {
           document_rejected_at: string | null
           hr_submitted_at: string | null
           edit_enabled: boolean
+          is_editable: boolean
         }
         Insert: {
           edit_enabled?: boolean
+          is_editable?: boolean
           admin_notes?: string | null
           availability?: Json | null
           contact_number: string
@@ -277,6 +279,7 @@ export type Database = {
           application_id: string;
           sender_id: string;
           sender_role: 'ADMIN' | 'STUDENT';
+          receiver_role?: 'ADMIN' | 'STUDENT';
           receiver_id: string;
           subject: string | null;
           message_body: string;
@@ -289,6 +292,7 @@ export type Database = {
           sender_id: string;
           sender_role: 'ADMIN' | 'STUDENT';
           receiver_id: string;
+          receiver_role?: 'ADMIN' | 'STUDENT';
           subject?: string | null;
           message_body: string;
           is_read?: boolean;
@@ -300,6 +304,7 @@ export type Database = {
           sender_id?: string;
           sender_role?: 'ADMIN' | 'STUDENT';
           receiver_id?: string;
+          receiver_role?: 'ADMIN' | 'STUDENT';
           subject?: string | null;
           message_body?: string;
           is_read?: boolean;

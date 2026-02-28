@@ -270,7 +270,7 @@ const Admin = () => {
     await fetchMessagesForApplication(application.id);
     // mark any messages sent to admin as read
     if (user?.id) {
-      await markMessagesRead(application.id, user.id);
+      await markMessagesRead(application.id, user.id, true);
       // refresh unread counters
       const newCount = await fetchUnreadCount(application.id, user.id, true);
       setAppUnreadCounts(prev => ({ ...prev, [application.id]: newCount }));
@@ -400,7 +400,7 @@ University of Fort Hare`;
     try {
       const { error } = await supabase
         .from('tutor_applications')
-        .update({ offer_status: 'VERIFIED', appointment_status: 'FINALIZED' } as any)
+        .update({ offer_status: 'VERIFIED', appointment_status: 'FINALIZED', document_rejection_reason: null, document_rejected_at: null } as any)
         .eq('id', applicationId);
       if (error) throw error;
 
@@ -412,6 +412,22 @@ University of Fort Hare`;
         'DOCUMENTS_VERIFIED',
         'Offer documents verified and approved by HR'
       );
+
+      // notify student via internal message
+      try {
+        if (selectedApplication?.user_id) {
+          await sendMessage({
+            application_id: applicationId,
+            sender_id: user?.id || '',
+            sender_role: 'ADMIN',
+            receiver_id: selectedApplication.user_id,
+            subject: 'Offer documents approved',
+            message_body: 'Your offer documents have been verified and approved. Thank you.'
+          });
+        }
+      } catch (e) {
+        logger.error('Failed to send approval message to student:', e);
+      }
 
       toast.success('Offer documents approved');
       await fetchApplications();
@@ -438,7 +454,7 @@ University of Fort Hare`;
     try {
       const { error } = await supabase
         .from('tutor_applications')
-        .update({ offer_status: 'WITHDRAWN', document_rejection_reason: reason, document_rejected_at: new Date().toISOString() } as any)
+        .update({ offer_status: 'RESUBMISSION_REQUIRED', document_rejection_reason: reason, document_rejected_at: new Date().toISOString() } as any)
         .eq('id', applicationId);
       if (error) throw error;
 
@@ -450,6 +466,22 @@ University of Fort Hare`;
         'DOCUMENT_REJECTED',
         `Documents rejected with reason: ${reason}`
       );
+
+      // notify student via internal message and prompt resubmission
+      try {
+        if (selectedApplication?.user_id) {
+          await sendMessage({
+            application_id: applicationId,
+            sender_id: user?.id || '',
+            sender_role: 'ADMIN',
+            receiver_id: selectedApplication.user_id,
+            subject: 'Offer documents - resubmission required',
+            message_body: `Your submitted offer documents were rejected. Reason: ${reason}. Please resubmit the requested documents.`
+          });
+        }
+      } catch (e) {
+        logger.error('Failed to send rejection message to student:', e);
+      }
 
       toast.success('Documents rejected; applicant will be asked to resubmit');
       await fetchApplications();
@@ -1434,11 +1466,11 @@ University of Fort Hare`;
                               try {
                                 const { error } = await supabase
                                   .from('tutor_applications')
-                                  .update({ edit_enabled: checked } as any)
+                                  .update({ edit_enabled: checked, is_editable: checked } as any)
                                   .eq('id', selectedApplication.id);
                                 if (error) throw error;
                                 // also update local copy so future sends use accurate state
-                                setSelectedApplication(prev => prev ? { ...prev, edit_enabled: checked } : prev);
+                                setSelectedApplication(prev => prev ? { ...prev, edit_enabled: checked, is_editable: checked } : prev);
                               } catch (err) {
                                 logger.error('Error updating edit_enabled flag:', err);
                                 toast.error('Failed to update edit permission');
@@ -1464,10 +1496,10 @@ University of Fort Hare`;
                             message_body: newMsgBody,
                           });
                           if (!ok) throw new Error('send failed');
-                          // update edit_enabled flag based on checkbox
+                          // update edit_enabled and is_editable flags based on checkbox
                           await supabase
                             .from('tutor_applications')
-                            .update({ edit_enabled: allowEdit } as any)
+                            .update({ edit_enabled: allowEdit, is_editable: allowEdit } as any)
                             .eq('id', selectedApplication.id);
                           await createAuditLog(
                             selectedApplication.id,

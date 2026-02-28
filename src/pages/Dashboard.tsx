@@ -92,6 +92,26 @@ const Dashboard = () => {
     }
   }, [user]);
 
+  // subscribe to incoming messages for student and update unread count live
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel('public:messages:student')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+        const msg = payload.new as any;
+        if (!msg) return;
+        // Only count messages addressed to this student (receiver_id) or messages with receiver_role 'STUDENT' for their application
+        if ((msg.receiver_id === user.id || msg.receiver_role === 'STUDENT') && msg.application_id === application?.id && !msg.is_read) {
+          setUnreadCount(prev => prev + 1);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, application]);
+
   const fetchApplication = async () => {
     setMessage('Loading your application...');
     setLoading(true);
@@ -297,7 +317,7 @@ const Dashboard = () => {
                           View
                         </Button>
                       </Link>
-                      {(application.status === 'draft' || application.status === 'pending' || application.edit_enabled) && (
+                      {(application.status === 'draft' || application.status === 'pending' || (application as any).is_editable || application.edit_enabled) && (
                         <Link to={`/application/${application.id}/edit`}>
                           <Button size="sm" className="gap-2">
                             <Edit className="w-4 h-4" />
