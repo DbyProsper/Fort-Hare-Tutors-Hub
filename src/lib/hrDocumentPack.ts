@@ -172,43 +172,99 @@ export const mergeDocumentsIntoPDF = async (
   dateVerified: string
 ): Promise<Blob | null> => {
   try {
-    // create a new PDF that will contain all pages
     const mergedPdf = await PDFDocument.create();
+    let validPdfCount = 0;
 
-    // optionally generate and prepend a cover page
-    const coverBlob = await generateCoverPagePDF(studentNumber, fullName, department, applicationId, dateVerified);
+    // ✅ Generate cover page
+    const coverBlob = await generateCoverPagePDF(
+      studentNumber,
+      fullName,
+      department,
+      applicationId,
+      dateVerified
+    );
+
     if (coverBlob) {
       const coverBytes = await coverBlob.arrayBuffer();
-      const coverDoc = await PDFDocument.load(coverBytes);
-      const coverPages = await mergedPdf.copyPages(coverDoc, coverDoc.getPageIndices());
-      coverPages.forEach(p => mergedPdf.addPage(p));
-    }
+      const coverHeader = new TextDecoder().decode(coverBytes.slice(0, 5));
 
-    // iterate over each document and merge its pages
-    for (const doc of documents) {
-      try {
-        const { data, error } = await supabase.storage
-          .from('application-documents')
-          .download(doc.file_path);
-        if (error) throw error;
-        const bytes = await data.arrayBuffer();
-        const pdf = await PDFDocument.load(bytes);
-        const copied = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-        copied.forEach(p => mergedPdf.addPage(p));
-      } catch (e) {
-        logger.error('Failed to fetch or merge document', doc.file_path, e);
-        // continue with others
+      if (coverHeader.startsWith('%PDF-')) {
+        const coverDoc = await PDFDocument.load(coverBytes);
+        const coverPages = await mergedPdf.copyPages(
+          coverDoc,
+          coverDoc.getPageIndices()
+        );
+        coverPages.forEach(p => mergedPdf.addPage(p));
+        validPdfCount++;
+      } else {
+        console.error('Cover page is not a valid PDF');
       }
     }
 
+    // ✅ Merge each uploaded document safely
+    for (const doc of documents) {
+      try {
+        console.log('Downloading:', doc.file_path);
+
+        const { data, error } = await supabase.storage
+          .from('application-documents')
+          .download(doc.file_path);
+
+        if (error) {
+          console.error('Storage error:', error);
+          continue;
+        }
+
+        if (!data) {
+          console.error('No data returned for:', doc.file_path);
+          continue;
+        }
+
+        const bytes = await data.arrayBuffer();
+
+        if (bytes.byteLength === 0) {
+          console.error('Empty file skipped:', doc.file_path);
+          continue;
+        }
+
+        // 🔥 Critical validation
+        const header = new TextDecoder().decode(bytes.slice(0, 5));
+
+        if (!header.startsWith('%PDF-')) {
+          console.error('Invalid PDF skipped:', doc.file_path);
+          continue;
+        }
+
+        const pdf = await PDFDocument.load(bytes);
+
+        const copied = await mergedPdf.copyPages(
+          pdf,
+          pdf.getPageIndices()
+        );
+
+        copied.forEach(p => mergedPdf.addPage(p));
+        validPdfCount++;
+
+      } catch (e) {
+        console.error('Failed merging file:', doc.file_path, e);
+        continue;
+      }
+    }
+
+    if (validPdfCount === 0) {
+      console.error('No valid PDFs found to merge.');
+      return null;
+    }
+
     const mergedBytes = await mergedPdf.save();
+
     return new Blob([mergedBytes], { type: 'application/pdf' });
+
   } catch (err) {
-    logger.error('Error merging documents:', err);
+    console.error('Error merging documents:', err);
     return null;
   }
 };
-
 /**
  * Alternative: Use a server-side Edge Function to merge PDFs
  * This would be more efficient and reliable
