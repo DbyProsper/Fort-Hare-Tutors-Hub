@@ -190,9 +190,13 @@ const EditApplication = () => {
         return;
       }
 
-      // Check if application can be edited (DB-driven)
-      if (!(data.is_editable === true || data.edit_enabled === true)) {
-        toast.error('This application cannot be edited');
+      // Check if application can be edited
+      if (
+        data.status !== 'draft' &&
+        data.status !== 'pending' &&
+        data.edit_enabled !== true
+      ) {
+        toast.error('This application cannot be edited at its current status.');
         navigate('/dashboard');
         return;
       }
@@ -334,7 +338,6 @@ const EditApplication = () => {
         motivation_letter: formData.motivation_letter || '',
         status: 'draft' as const,
         updated_at: new Date().toISOString(),
-        edit_enabled: false,
       };
 
       logger.log('Application data prepared');
@@ -514,8 +517,6 @@ const EditApplication = () => {
         motivation_letter: data.motivation_letter,
         status: 'pending',
         submitted_at: new Date().toISOString(),
-        // ensure editing is disabled immediately after submission
-        is_editable: false,
         updated_at: new Date().toISOString(),
       } as any;
 
