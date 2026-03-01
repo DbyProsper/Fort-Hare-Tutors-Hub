@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
 import { mergeDocumentsIntoPDF } from '@/lib/hrDocumentPack';
 import { fetchMessages, sendMessage, markMessagesRead, fetchUnreadCount, MessageRow } from '@/lib/messages';
+import useMessageNotifications from '@/hooks/useMessageNotifications';
 
 interface UploadedDocument {
   id?: string;
@@ -148,8 +149,8 @@ const ApplicationView = () => {
       logger.log('Setting application data');
       setApplication(data);
 
-      // also fetch unread count
-      await loadUnreadCount();
+      // also fetch unread count via hook (useMessageNotifications handles this)
+      // Unread count is now loaded automatically by the hook
 
       // Load documents
       logger.log('Loading documents...');
@@ -243,16 +244,15 @@ const ApplicationView = () => {
 
   const location = useLocation();
 
-  const loadUnreadCount = async () => {
-    if (!application || !user?.id) return;
-    try {
-      const count = await fetchUnreadCount(application.id, user.id);
-      setUnreadCount(count);
-    } catch (err) {
-      logger.error('Error fetching unread count:', err);
-      setUnreadCount(0);
-    }
-  };
+  // Use message notifications hook for real-time updates and sound alerts
+  useMessageNotifications(
+    {
+      onUnreadCountUpdate: (count) => {
+        setUnreadCount(count);
+      },
+    },
+    true
+  );
 
   useEffect(() => {
     logger.log('useEffect triggered');
@@ -291,7 +291,8 @@ const ApplicationView = () => {
       if (user?.id) {
         (async () => {
           await markMessagesRead(application.id, user.id, false);
-          loadUnreadCount();
+          // Unread count will update automatically via subscription
+          setUnreadCount(0);
         })();
       }
     }

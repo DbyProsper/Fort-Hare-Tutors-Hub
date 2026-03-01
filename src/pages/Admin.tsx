@@ -35,6 +35,7 @@ import { logger } from '@/lib/logger';
 import { createAuditLog, fetchAuditLogs, AuditLogEntry } from '@/lib/auditLog';
 import { fetchApplicationDocuments, checkDocumentsComplete, getRequiredDocumentsForPack, mergeDocumentsIntoPDF } from '@/lib/hrDocumentPack';
 import { fetchMessages, sendMessage, markMessagesRead, fetchUnreadCount, MessageRow } from '@/lib/messages';
+import useMessageNotifications from '@/hooks/useMessageNotifications';
 
 interface Application {
   id: string;
@@ -147,25 +148,18 @@ const Admin = () => {
     }
   }, [isAdmin]);
 
-  // subscribe to new messages so admin list updates live
-  useEffect(() => {
-    if (!isAdmin) return;
-    const channel = supabase
-      .channel('public:messages')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-        const msg = payload.new as MessageRow;
-        if (msg.sender_role === 'STUDENT') {
-          setAppUnreadCounts(prev => ({
-            ...prev,
-            [msg.application_id]: (prev[msg.application_id] || 0) + 1,
-          }));
-        }
-      })
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [isAdmin]);
+  // Use message notifications hook for real-time updates and sound alerts
+  useMessageNotifications(
+    {
+      onApplicationUnreadUpdate: (applicationId, count) => {
+        setAppUnreadCounts(prev => ({
+          ...prev,
+          [applicationId]: count,
+        }));
+      },
+    },
+    isAdmin === true
+  );
 
   const fetchApplications = async () => {
     setMessage('Loading applications...');

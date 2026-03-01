@@ -24,7 +24,7 @@ import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
-import { fetchUnreadCount } from '@/lib/messages';
+import { useMessageNotifications } from '@/hooks/useMessageNotifications';
 
 interface Application {
   id: string;
@@ -80,6 +80,13 @@ const Dashboard = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Real-time notification system - handles sound alerts and unread count updates for students
+  useMessageNotifications({
+    onUnreadCountUpdate: (count) => {
+      setUnreadCount(count);
+    },
+  });
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
@@ -93,24 +100,7 @@ const Dashboard = () => {
   }, [user]);
 
   // subscribe to incoming messages for student and update unread count live
-  useEffect(() => {
-    if (!user?.id) return;
-    const channel = supabase
-      .channel('public:messages:student')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-        const msg = payload.new as any;
-        if (!msg) return;
-        // Only count messages addressed to this student (receiver_id) or messages with receiver_role 'STUDENT' for their application
-        if ((msg.receiver_id === user.id || msg.receiver_role === 'STUDENT') && msg.application_id === application?.id && !msg.is_read) {
-          setUnreadCount(prev => prev + 1);
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, application]);
+  // (now handled by useMessageNotifications hook above)
 
   const fetchApplication = async () => {
     setMessage('Loading your application...');
@@ -156,15 +146,7 @@ const Dashboard = () => {
       }
 
       setApplication(data);
-      // fetch unread messages count
-      if (data && user?.id) {
-        try {
-          const count = await fetchUnreadCount(data.id, user.id);
-          setUnreadCount(count);
-        } catch (err) {
-          logger.error('Error fetching unread count:', err);
-        }
-      }
+      // unread count is now fetched and managed by useMessageNotifications hook
       logger.log('Application loaded successfully');
     } catch (error) {
       logger.error('Unexpected error fetching application:', error);

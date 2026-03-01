@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
 import { fetchMessages, sendMessage, markMessagesRead, fetchUnreadCount, MessageRow } from '@/lib/messages';
+import { useMessageNotifications } from '@/hooks/useMessageNotifications';
 
 interface ConversationSummary {
   application_id: string;
@@ -31,6 +32,24 @@ const Messages = () => {
   const [newMsgBody, setNewMsgBody] = useState('');
   const [newMsgSubject, setNewMsgSubject] = useState('');
   const [isSending, setIsSending] = useState(false);
+
+  // Real-time notification system
+  useMessageNotifications({
+    onUnreadCountUpdate: (count) => {
+      // Student: update total unread
+      if (!isAdmin && conversations.length) {
+        setConversations(prev => [{ ...prev[0], unread: count }]);
+      }
+    },
+    onApplicationUnreadUpdate: (appId, count) => {
+      // Admin: update unread by application
+      if (isAdmin) {
+        setConversations(prev =>
+          prev.map(c => c.application_id === appId ? { ...c, unread: count } : c)
+        );
+      }
+    },
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
