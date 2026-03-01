@@ -177,6 +177,19 @@ const Apply = () => {
       }
       
       checkExistingApplication();
+
+      // Show first-time user alert
+      const hasSeenAlert = localStorage.getItem('hasSeenSaveDraftAlert');
+      if (!hasSeenAlert) {
+        toast.info('Welcome! Remember to save your draft frequently to avoid losing data.', {
+          duration: 10000,
+          action: {
+            label: 'Got it!',
+            onClick: () => {},
+          },
+        });
+        localStorage.setItem('hasSeenSaveDraftAlert', 'true');
+      }
     }
   }, [user]);
 
@@ -1304,7 +1317,7 @@ const Apply = () => {
                 </div>
                 
                 {currentStep < 5 ? (
-                  <Button type="button" onClick={nextStep}>
+                  <Button type="button" onClick={(e) => { e.preventDefault(); nextStep(); }}>
                     Next
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>

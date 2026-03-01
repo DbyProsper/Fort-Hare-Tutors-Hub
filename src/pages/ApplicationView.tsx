@@ -257,9 +257,20 @@ const ApplicationView = () => {
   useEffect(() => {
     logger.log('useEffect triggered');
     if (!user || !id) return;
+
     loadApplication();
 
-    // compute document completeness on load and when documents change
+    const channel = supabase
+      .channel(`tutor_applications:${id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tutor_applications', filter: `id=eq.${id}` }, (payload) => {
+        logger.log('Application updated, reloading:', payload);
+        loadApplication();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user, id]);
 
   useEffect(() => {
@@ -726,11 +737,11 @@ const ApplicationView = () => {
                 ← Back to Dashboard
               </button>
             </Link>
-            {((application as any).is_editable === true || application.edit_enabled) && (
+            {(application.status === 'draft' || application.status === 'pending' || (application as any).is_editable || application.edit_enabled) && (
               <Link to={`/application/${id}/edit`}>
-                <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#003A8F', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: 'white', textDecoration: 'none', cursor: 'pointer', fontWeight: '600', boxShadow: '0 6px 18px rgba(0,58,143,0.12)', transition: 'transform 0.12s ease' }}>
+                <Button>
                   ✏️ Edit Application
-                </button>
+                </Button>
               </Link>
             )}
           </div>
@@ -950,6 +961,23 @@ const ApplicationView = () => {
                     <div>
                       <p style={{ fontWeight: '500', color: '#1f2937' }}>Application Rejected</p>
                       <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>{application.rejection_reason}</p>
+                    </div>
+                  </div>
+                )}
+                {application.documents_verified_at && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', position: 'relative', zIndex: 1 }}>
+                    <div style={{ width: '12px', height: '12px', backgroundColor: '#10b981', borderRadius: '50%' }}></div>
+                    <div>
+                      <p style={{ fontWeight: '500', color: '#1f2937' }}>Documents Approved</p>
+                      <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                        {new Date(application.documents_verified_at).toLocaleDateString('en-ZA', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
                     </div>
                   </div>
                 )}

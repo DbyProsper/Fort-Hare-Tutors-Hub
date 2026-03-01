@@ -235,7 +235,7 @@ export const mergeDocumentsIntoPDF = async (
           continue;
         }
 
-        const pdf = await PDFDocument.load(bytes);
+        const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
 
         const copied = await mergedPdf.copyPages(
           pdf,

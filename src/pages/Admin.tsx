@@ -394,7 +394,7 @@ University of Fort Hare`;
     try {
       const { error } = await supabase
         .from('tutor_applications')
-        .update({ offer_status: 'VERIFIED', appointment_status: 'FINALIZED', document_rejection_reason: null, document_rejected_at: null } as any)
+        .update({ offer_status: 'VERIFIED', appointment_status: 'FINALIZED', document_rejection_reason: null, document_rejected_at: null, documents_verified_at: new Date().toISOString() } as any)
         .eq('id', applicationId);
       if (error) throw error;
 
