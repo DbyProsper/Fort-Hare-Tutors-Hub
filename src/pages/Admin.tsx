@@ -396,7 +396,6 @@ University of Fort Hare`;
         .from('tutor_applications')
         .update({ 
           offer_status: 'VERIFIED', 
-          appointment_status: 'PENDING_HR_SUBMISSION', 
           document_rejection_reason: null, 
           document_rejected_at: null, 
           documents_verified_at: new Date().toISOString() 

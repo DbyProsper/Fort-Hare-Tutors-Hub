@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import * as pdfjsLib from 'pdfjs-dist';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -95,42 +95,38 @@ export const generateCoverPagePDF = async (
   dateVerified: string
 ): Promise<Blob | null> => {
   try {
-    // For now, return a simple HTML-based PDF using a canvas approach
-    // In production, you might use a library like jsPDF for better control
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = 210 * 3.78; // A4 width in pixels (mm * DPI/25.4)
-    canvas.height = 297 * 3.78; // A4 height in pixels
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas context not available');
-
-    // White background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage();
+    const { width, height } = page.getSize();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
     // Title
-    ctx.fillStyle = '#1f2937';
-    ctx.font = 'bold 48px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('Tutor Appointment', canvas.width / 2, 150);
-    ctx.fillText('Document Pack', canvas.width / 2, 220);
+    page.drawText('Tutor Appointment', {
+      x: width / 2 - 100,
+      y: height - 150,
+      font: boldFont,
+      size: 30,
+      color: rgb(0.12, 0.16, 0.22),
+    });
+    page.drawText('Document Pack', {
+      x: width / 2 - 80,
+      y: height - 200,
+      font: boldFont,
+      size: 30,
+      color: rgb(0.12, 0.16, 0.22),
+    });
 
     // Separator line (UFH Blue)
-    ctx.strokeStyle = '#003A8F';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(100, 280);
-    ctx.lineTo(canvas.width - 100, 280);
-    ctx.stroke();
+    page.drawLine({
+      start: { x: 50, y: height - 250 },
+      end: { x: width - 50, y: height - 250 },
+      thickness: 3,
+      color: rgb(0, 0.23, 0.56),
+    });
 
     // Details
-    ctx.fillStyle = '#374151';
-    ctx.font = 'bold 24px Arial';
-    ctx.textAlign = 'left';
-    const margin = 150;
-    let y = 400;
-
+    let y = height - 350;
     const details = [
       ['Applicant Name:', fullName],
       ['Student Number:', studentNumber],
@@ -140,23 +136,42 @@ export const generateCoverPagePDF = async (
     ];
 
     details.forEach(([label, value]) => {
-      ctx.font = 'bold 20px Arial';
-      ctx.fillText(label, margin, y);
-      ctx.font = '20px Arial';
-      ctx.fillText(value, margin + 400, y);
-      y += 100;
+      page.drawText(label, {
+        x: 70,
+        y,
+        font: boldFont,
+        size: 14,
+        color: rgb(0.22, 0.25, 0.32),
+      });
+      page.drawText(value, {
+        x: 250,
+        y,
+        font: font,
+        size: 14,
+        color: rgb(0.22, 0.25, 0.32),
+      });
+      y -= 40;
     });
 
     // Footer
-    ctx.fillStyle = '#6b7280';
-    ctx.font = '16px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('Generated for HR Department', canvas.width / 2, canvas.height - 100);
-    ctx.fillText(new Date().toLocaleDateString(), canvas.width / 2, canvas.height - 50);
-
-    return new Promise((resolve) => {
-      canvas.toBlob(resolve, 'application/pdf');
+    page.drawText('Generated for HR Department', {
+      x: width / 2 - 100,
+      y: 100,
+      font: font,
+      size: 12,
+      color: rgb(0.42, 0.45, 0.49),
     });
+    page.drawText(new Date().toLocaleDateString(), {
+      x: width / 2 - 40,
+      y: 80,
+      font: font,
+      size: 12,
+      color: rgb(0.42, 0.45, 0.49),
+    });
+
+    const pdfBytes = await pdfDoc.save();
+    return new Blob([pdfBytes], { type: 'application/pdf' });
+
   } catch (err) {
     logger.error('Error generating cover page PDF:', err);
     return null;
@@ -242,7 +257,7 @@ export const mergeDocumentsIntoPDF = async (
           pdf = await PDFDocument.load(bytes);
         } catch (e: any) {
           // If encrypted, try loading with student ID as password
-          if (e.name === 'PasswordDecryptor') {
+          if (e.message.includes('is encrypted')) {
             console.log('PDF is encrypted, trying with student ID');
             pdf = await PDFDocument.load(bytes, { ownerPassword: studentId });
           } else {
