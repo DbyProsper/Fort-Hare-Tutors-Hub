@@ -84,13 +84,13 @@ export const useMessageNotifications = (
           return;
         }
 
+        // Play notification sound immediately without waiting
+        playNotificationSound();
+
         // Call custom callback
         if (callbacks?.onNewMessage) {
           callbacks.onNewMessage(message);
         }
-
-        // Play notification sound
-        await playNotificationSound();
 
         // Update unread counts based on role
         if (isAdmin) {

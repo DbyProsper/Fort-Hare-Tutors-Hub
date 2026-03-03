@@ -169,7 +169,8 @@ export const mergeDocumentsIntoPDF = async (
   fullName: string,
   department: string,
   applicationId: string,
-  dateVerified: string
+  dateVerified: string,
+  studentId: string
 ): Promise<Blob | null> => {
   try {
     const mergedPdf = await PDFDocument.create();
@@ -235,7 +236,19 @@ export const mergeDocumentsIntoPDF = async (
           continue;
         }
 
-        const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+        let pdf;
+        try {
+          // Try loading without password first
+          pdf = await PDFDocument.load(bytes);
+        } catch (e: any) {
+          // If encrypted, try loading with student ID as password
+          if (e.name === 'PasswordDecryptor') {
+            console.log('PDF is encrypted, trying with student ID');
+            pdf = await PDFDocument.load(bytes, { ownerPassword: studentId });
+          } else {
+            throw e; // re-throw other errors
+          }
+        }
 
         const copied = await mergedPdf.copyPages(
           pdf,

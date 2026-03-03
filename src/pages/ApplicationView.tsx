@@ -297,25 +297,31 @@ const ApplicationView = () => {
   }, [user, id]);
 
   useEffect(() => {
-    if (showMessagesPanel && application) {
-      loadMessages();
-      if (user?.id) {
-        (async () => {
-          await markMessagesRead(application.id, user.id, false);
-          // Unread count will update automatically via subscription
-          setUnreadCount(0);
-        })();
+    if (showMessagesPanel) {
+      if (application) {
+        loadMessages();
+        if (user?.id) {
+          (async () => {
+            await markMessagesRead(application.id, user.id, false);
+            setUnreadCount(0); // Optimistically update
+          })();
+        }
       }
+      // Scroll to messages section after it has been rendered
+      setTimeout(() => {
+        const el = document.getElementById('messages-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 0);
     }
+    
     // If navigation requested messages open, open once
     if (application && (location as any)?.state?.openMessages) {
       setShowMessagesPanel(true);
-      const el = document.getElementById('messages-section');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      // The above logic will handle the scrolling
       try {
         // Try to clear navigation state to avoid re-opening on back/forward
         const s = { ...(window.history.state || {}), usr: null };
-        window.history.replaceState(s, '');
+        window.history.replaceState(s, '',);
       } catch (e) {
         // ignore
       }
@@ -384,8 +390,6 @@ const ApplicationView = () => {
               <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Welcome, {user?.user_metadata?.full_name || user?.email}</span>
               <button onClick={() => {
                 setShowMessagesPanel(true);
-                const el = document.getElementById('messages-section');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
               }} title="Messages" style={{ backgroundColor: 'transparent', border: '1px solid #d1d5db', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <MessageSquare size={16} />
                 {unreadCount > 0 && <span style={{ background: '#dc2626', color: 'white', padding: '2px 6px', borderRadius: '12px', fontSize: '0.75rem' }}>{unreadCount}</span>}
@@ -663,7 +667,8 @@ const ApplicationView = () => {
                               application.full_name,
                               application.department,
                               application.id,
-                              new Date().toLocaleDateString()
+                              new Date().toLocaleDateString(),
+                              application.student_number
                             );
                             if (blob) {
                               const url = URL.createObjectURL(blob);

@@ -394,7 +394,13 @@ University of Fort Hare`;
     try {
       const { error } = await supabase
         .from('tutor_applications')
-        .update({ offer_status: 'VERIFIED', appointment_status: 'FINALIZED', document_rejection_reason: null, document_rejected_at: null, documents_verified_at: new Date().toISOString() } as any)
+        .update({ 
+          offer_status: 'VERIFIED', 
+          appointment_status: 'PENDING_HR_SUBMISSION', 
+          document_rejection_reason: null, 
+          document_rejected_at: null, 
+          documents_verified_at: new Date().toISOString() 
+        } as any)
         .eq('id', applicationId);
       if (error) throw error;
 
@@ -448,7 +454,12 @@ University of Fort Hare`;
     try {
       const { error } = await supabase
         .from('tutor_applications')
-        .update({ offer_status: 'RESUBMISSION_REQUIRED', document_rejection_reason: reason, document_rejected_at: new Date().toISOString() } as any)
+        .update({ 
+          offer_status: 'RESUBMISSION_REQUIRED', 
+          document_rejection_reason: reason, 
+          document_rejected_at: new Date().toISOString(),
+          documents_verified_at: null 
+        } as any)
         .eq('id', applicationId);
       if (error) throw error;
 
@@ -623,7 +634,8 @@ University of Fort Hare`;
         app.full_name,
         app.department,
         applicationId,
-        new Date().toLocaleDateString()
+        new Date().toLocaleDateString(),
+        app.student_number
       );
 
       if (blob) {
