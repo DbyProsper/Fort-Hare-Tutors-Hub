@@ -1081,7 +1081,7 @@ University of Fort Hare`;
                         {app.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-medium flex items-center">
+                        <div className="font-medium flex items-center">
                           {app.full_name}
                           {appUnreadCounts[app.id] > 0 && (
                             <>
@@ -1089,7 +1089,7 @@ University of Fort Hare`;
                               <Badge className="ml-1">{appUnreadCounts[app.id]}</Badge>
                             </>
                           )}
-                        </p>
+                        </div>
                         <p className="text-sm text-muted-foreground">{app.student_number} • {app.faculty}</p>
                       </div>
                     </div>

@@ -258,9 +258,15 @@ export const mergeDocumentsIntoPDF = async (
         } catch (e: any) {
           // If encrypted, try loading with student ID as password
           if (e.message.includes('is encrypted')) {
-            console.log('PDF is encrypted, trying with student ID');
-            pdf = await PDFDocument.load(bytes, { ownerPassword: studentId });
+            console.log('PDF is encrypted, trying with student ID as password.');
+            try {
+              pdf = await PDFDocument.load(bytes, { password: studentId });
+            } catch (passwordError) {
+              console.warn('Failed to decrypt with student ID password. Trying to load by ignoring encryption. This may result in blank pages if the document is heavily encrypted.');
+              pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+            }
           } else {
+            console.error('An unexpected error occurred while loading a PDF, re-throwing.', e)
             throw e; // re-throw other errors
           }
         }

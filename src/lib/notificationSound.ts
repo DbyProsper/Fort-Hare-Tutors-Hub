@@ -52,16 +52,18 @@ class NotificationAudioManager implements NotificationSoundManager {
     this.lastPlayTime = now;
 
     try {
-      // Only play if page is visible
-      if (document.visibilityState === 'visible') {
-        this.audio.currentTime = 0;
-        await this.audio.play();
-      }
+      this.audio.currentTime = 0;
+      await this.audio.play();
     } catch (error) {
-      // Silently handle autoplay restrictions and other errors
+      // Handle autoplay restrictions and other errors
       if (error instanceof Error) {
-        if (!error.message.includes('NotAllowedError')) {
-          console.warn('Notification sound play failed:', error.message);
+        if (error.name === 'NotAllowedError') {
+            console.warn(
+                'Notification sound was blocked by browser autoplay policy. ' +
+                'A user interaction (like a click) is required to enable sound.'
+            );
+        } else {
+            console.warn('Notification sound play failed:', error);
         }
       }
     }
