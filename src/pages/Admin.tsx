@@ -441,6 +441,30 @@ University of Fort Hare`;
     }
   };
 
+  // withdraw an offer (either because of rejection or manual admin action)
+  const withdrawOffer = async (applicationId: string) => {
+    setIsUpdating(true);
+    setMessage('Withdrawing offer...');
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('tutor_applications')
+        .update({ offer_status: 'WITHDRAWN', offer_sent_at: null } as any)
+        .eq('id', applicationId);
+      if (error) throw error;
+      toast.success('Offer withdrawn');
+      await fetchApplications();
+      setIsDialogOpen(false);
+    } catch (err) {
+      logger.error('Error withdrawing offer documents:', err);
+      toast.error('Failed to withdraw offer');
+    } finally {
+      setIsUpdating(false);
+      setLoading(false);
+      setMessage('Loading...');
+    }
+  };
+
   const rejectOfferDocuments = async (applicationId: string, reason: string) => {
     if (!reason.trim()) {
       toast.error('Rejection reason required');
