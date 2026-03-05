@@ -15,7 +15,8 @@ import {
   Plus,
   Eye,
   Edit,
-  Loader2
+  Loader2,
+  MessageSquare
 } from 'lucide-react';
 import { UFHLogo } from '@/components/UFHLogo';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,6 +24,7 @@ import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
+import { useMessageNotifications } from '@/hooks/useMessageNotifications';
 
 interface Application {
   id: string;
@@ -34,6 +36,7 @@ interface Application {
   full_name: string;
   degree_program: string;
   faculty: string;
+  edit_enabled?: boolean;
 }
 
 const statusConfig = {
@@ -74,7 +77,15 @@ const Dashboard = () => {
   const { user, isLoading: authLoading, signOut } = useAuth();
   const { setLoading, setMessage } = useLoading();
   const [application, setApplication] = useState<Application | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Real-time notification system - handles sound alerts and unread count updates for students
+  useMessageNotifications({
+    onUnreadCountUpdate: (count) => {
+      setUnreadCount(count);
+    },
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -87,6 +98,9 @@ const Dashboard = () => {
       fetchApplication();
     }
   }, [user]);
+
+  // subscribe to incoming messages for student and update unread count live
+  // (now handled by useMessageNotifications hook above)
 
   const fetchApplication = async () => {
     setMessage('Loading your application...');
@@ -132,6 +146,7 @@ const Dashboard = () => {
       }
 
       setApplication(data);
+      // unread count is now fetched and managed by useMessageNotifications hook
       logger.log('Application loaded successfully');
     } catch (error) {
       logger.error('Unexpected error fetching application:', error);
@@ -185,10 +200,28 @@ const Dashboard = () => {
               <p className="text-xs text-muted-foreground">Student Dashboard</p>
             </div>
           </Link>
-          <Button variant="ghost" onClick={handleSignOut} className="gap-2">
-            <LogOut className="w-4 h-4" />
-            Sign Out
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={() => {
+              if (!application || !application.id) {
+                toast.error('No application available');
+                return;
+              }
+              // if user has only draft, open the application view, otherwise go to general messages page
+              if (application.status === 'draft') {
+                navigate(`/application/${application.id}`, { state: { openMessages: true } });
+              } else {
+                navigate('/messages');
+              }
+            }} className="gap-2">
+              <MessageSquare className="w-4 h-4" />
+              Messages
+              {unreadCount > 0 && <Badge className="ml-2">{unreadCount}</Badge>}
+            </Button>
+            <Button variant="ghost" onClick={handleSignOut} className="gap-2">
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -212,6 +245,16 @@ const Dashboard = () => {
               <AlertTitle className="text-blue-900">Offer Documents Ready</AlertTitle>
               <AlertDescription className="text-blue-800">
                 Your offer documents are ready for download! Please visit your application to download the required forms, have them signed by a Commissioner of Oaths, and submit them back. You'll also need to upload your Certified ID/Passport, Proof of Registration, Bank Statement, and Police Station stamp.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {unreadCount > 0 && (
+            <Alert className="mb-6 border-2 border-blue-200 bg-blue-50">
+              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <AlertTitle className="text-blue-900">New Message</AlertTitle>
+              <AlertDescription className="text-blue-800">
+                You have {unreadCount} new message{unreadCount > 1 ? 's' : ''} regarding your application. <Link to={`/application/${application?.id}`}><Button size="sm" variant="outline">View</Button></Link> or <Link to="/messages"><Button size="sm" variant="outline">All Messages</Button></Link>
               </AlertDescription>
             </Alert>
           )}
@@ -256,7 +299,7 @@ const Dashboard = () => {
                           View
                         </Button>
                       </Link>
-                      {(application.status === 'draft' || application.status === 'pending') && (
+                      {(application.status === 'draft' || application.status === 'pending' || (application as any).is_editable || application.edit_enabled) && (
                         <Link to={`/application/${application.id}/edit`}>
                           <Button size="sm" className="gap-2">
                             <Edit className="w-4 h-4" />

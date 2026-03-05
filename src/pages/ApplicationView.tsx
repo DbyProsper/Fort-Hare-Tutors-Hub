@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import {
   BookOpen, 
   Briefcase, 
   Upload, 
+  MessageSquare,
   CheckCircle2,
   FileText,
   LogOut,
@@ -24,6 +25,9 @@ import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
+import { mergeDocumentsIntoPDF } from '@/lib/hrDocumentPack';
+import { fetchMessages, sendMessage, markMessagesRead, fetchUnreadCount, MessageRow } from '@/lib/messages';
+import useMessageNotifications from '@/hooks/useMessageNotifications';
 
 interface UploadedDocument {
   id?: string;
@@ -92,9 +96,25 @@ const ApplicationView = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [application, setApplication] = useState<any>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
+  const [docsComplete, setDocsComplete] = useState(false);
   const [offerAffidavitFile, setOfferAffidavitFile] = useState<File | null>(null);
   const [offerPersonalFormFile, setOfferPersonalFormFile] = useState<File | null>(null);
   const [isUploadingOfferDocs, setIsUploadingOfferDocs] = useState(false);
+  const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [newMsgBody, setNewMsgBody] = useState('');
+  const [newMsgSubject, setNewMsgSubject] = useState('');
+  const [showMessagesPanel, setShowMessagesPanel] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isSendingMsg, setIsSendingMsg] = useState(false);
+
+  // additional onboarding documents
+  const [additionalFiles, setAdditionalFiles] = useState<Record<string, File | null>>({
+    certified_id: null,
+    academic_transcript: null,
+    cv: null,
+    proof_of_registration: null,
+    bank_statement: null,
+  });
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   logger.log('ApplicationView rendered');
@@ -128,6 +148,9 @@ const ApplicationView = () => {
 
       logger.log('Setting application data');
       setApplication(data);
+
+      // also fetch unread count via hook (useMessageNotifications handles this)
+      // Unread count is now loaded automatically by the hook
 
       // Load documents
       logger.log('Loading documents...');
@@ -201,11 +224,62 @@ const ApplicationView = () => {
     }
   };
 
+  const loadMessages = async () => {
+    if (!application) return;
+    try {
+      const msgs = await fetchMessages(application.id);
+      setMessages(msgs);
+      // keep subject synced with last admin message if student hasn't set one
+      if (msgs.length) {
+        const last = msgs[msgs.length - 1];
+        if (!newMsgSubject) {
+          setNewMsgSubject(last.subject || '');
+        }
+      }
+    } catch (err) {
+      logger.error('Error loading messages:', err);
+      setMessages([]);
+    }
+  };
+
+  const location = useLocation();
+
+  // Use message notifications hook for real-time updates and sound alerts
+  useMessageNotifications(
+    {
+      onUnreadCountUpdate: (count) => {
+        setUnreadCount(count);
+      },
+    },
+    true
+  );
+
   useEffect(() => {
     logger.log('useEffect triggered');
     if (!user || !id) return;
+
     loadApplication();
 
+    const channel = supabase
+      .channel(`tutor_applications:${id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tutor_applications', filter: `id=eq.${id}` }, (payload) => {
+        logger.log('Application updated, reloading:', payload);
+        loadApplication();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, id]);
+
+  useEffect(() => {
+    const required = ['offer_affidavit','offer_personal_info','certified_id','proof_of_registration'];
+    const types = uploadedDocuments.map(d => d.document_type);
+    setDocsComplete(required.every(t => types.includes(t)));
+  }, [uploadedDocuments]);
+
+  useEffect(() => {
     // Fallback timeout in case loading gets stuck
     loadingTimeoutRef.current = setTimeout(() => {
       logger.log('Loading timeout reached, showing error');
@@ -221,6 +295,38 @@ const ApplicationView = () => {
       }
     };
   }, [user, id]);
+
+  useEffect(() => {
+    if (showMessagesPanel) {
+      if (application) {
+        loadMessages();
+        if (user?.id) {
+          (async () => {
+            await markMessagesRead(application.id, user.id, false);
+            setUnreadCount(0); // Optimistically update
+          })();
+        }
+      }
+      // Scroll to messages section after it has been rendered
+      setTimeout(() => {
+        const el = document.getElementById('messages-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 0);
+    }
+    
+    // If navigation requested messages open, open once
+    if (application && (location as any)?.state?.openMessages) {
+      setShowMessagesPanel(true);
+      // The above logic will handle the scrolling
+      try {
+        // Try to clear navigation state to avoid re-opening on back/forward
+        const s = { ...(window.history.state || {}), usr: null };
+        window.history.replaceState(s, '',);
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [showMessagesPanel, application, user]);
 
   // If no user, show a message
   if (!user) {
@@ -271,7 +377,7 @@ const ApplicationView = () => {
       <header style={{ backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderTop: '3px solid #003A8F' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '1rem', textDecoration: 'none' }}>
+            <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '1rem', textDecoration: 'none', color: 'inherit' }}>
               <div style={{ width: '40px', height: '40px', backgroundColor: '#003A8F', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,58,143,0.2)' }}>
                 <UFHLogo />
               </div>
@@ -282,6 +388,12 @@ const ApplicationView = () => {
             </Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Welcome, {user?.user_metadata?.full_name || user?.email}</span>
+              <button onClick={() => {
+                setShowMessagesPanel(true);
+              }} title="Messages" style={{ backgroundColor: 'transparent', border: '1px solid #d1d5db', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <MessageSquare size={16} />
+                {unreadCount > 0 && <span style={{ background: '#dc2626', color: 'white', padding: '2px 6px', borderRadius: '12px', fontSize: '0.75rem' }}>{unreadCount}</span>}
+              </button>
               <button 
                 onClick={handleSignOut}
                 style={{ backgroundColor: 'transparent', border: '1px solid #d1d5db', padding: '0.5rem 1rem', borderRadius: '0.375rem', color: '#6b7280', cursor: 'pointer' }}
@@ -314,7 +426,10 @@ const ApplicationView = () => {
                   boxShadow: '0 10px 30px rgba(0,58,143,0.15)',
                   transition: 'transform 0.3s ease, box-shadow 0.3s ease',
                   cursor: 'pointer'
-                }} className="relative" onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.02)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 15px 40px rgba(0,58,143,0.25)'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 10px 30px rgba(0,58,143,0.15)'; }}>
+                }} className="relative" onClick={() => {
+                  const el = document.getElementById('upload-section');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }} onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.02)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 15px 40px rgba(0,58,143,0.25)'; }} onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 10px 30px rgba(0,58,143,0.15)'; }}>
                   {/* Dark overlay with UFH gradient */}
                   <div style={{
                     position: 'absolute',
@@ -362,7 +477,7 @@ const ApplicationView = () => {
                       <p style={{ color: '#92400e' }}>Please correct and re-upload the signed documents.</p>
                     </div>
                   )}
-                  <div style={{ backgroundColor: '#f0f4ff', border: '1px solid #d0d9ff', borderRadius: '0.5rem', padding: '1rem', marginBottom: '1.5rem' }}>
+                  <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', marginBottom: '1.5rem' }}>
                     <p style={{ color: '#1f2937', fontWeight: '500', marginBottom: '0.5rem' }}>📋 Upload Documents to Admin</p>
                     <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.5rem' }}>You can now upload all required documents here. Each document will be sent directly to the admin for verification.</p>
                     <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Additionally, you must download, print, and sign the two forms below, then upload the signed versions.</p>
@@ -415,42 +530,43 @@ const ApplicationView = () => {
                       Download Affidavit
                     </button>
                   </div>
-                  <h4 style={{ fontWeight: '600', fontSize: '1rem', color: '#1f2937', marginBottom: '1rem' }}>Upload All Required Documents</h4>
+                  <h4 id="upload-section" style={{ fontWeight: '600', fontSize: '1rem', color: '#1f2937', marginBottom: '1rem' }}>Upload All Required Documents</h4>
+                  <p style={{ fontSize: '0.85rem', color: '#374151', marginBottom: '0.75rem' }}>Please name your files clearly (e.g. <em>StudentNumber_DocumentType.pdf</em>) so the Admin can identify them.</p>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>✓ Signed Acceptance Affidavit</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Signed & notarized</p>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferAffidavitFile(e.target.files?.[0] || null)} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>✓ Signed Personal Info Form</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Signed & notarized</p>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferPersonalFormFile(e.target.files?.[0] || null)} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>Certified ID / Passport / Study Permit</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Certified copy (within 3 months)</p>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, certified_id: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>Academic Transcript</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Official UFH transcript</p>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, academic_transcript: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>CV / Resume</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>PDF preferred</p>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, cv: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>Proof of Registration</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Current year registration</p>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, proof_of_registration: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
                       <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>3 Months Bank Statement</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Recent bank statement stamped</p>
-                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" style={{ width: '100%', fontSize: '0.75rem' }} />
+                      <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, bank_statement: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
                   </div>
                   <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '1rem' }}>
@@ -460,42 +576,51 @@ const ApplicationView = () => {
                     <button
                       disabled={isUploadingOfferDocs}
                       onClick={async () => {
-                        // if no new files selected, allow if there are already uploaded offer docs
-                        if (!offerAffidavitFile && !offerPersonalFormFile) {
-                          const hasAff = uploadedDocuments.some(d => d.document_type === 'offer_affidavit');
-                          const hasPer = uploadedDocuments.some(d => d.document_type === 'offer_personal_info');
-                          if (!hasAff && !hasPer) {
-                            toast.error('Please choose at least one PDF to upload');
-                            return;
-                          }
+                        const hasNewAff = !!offerAffidavitFile;
+                        const hasNewPer = !!offerPersonalFormFile;
+                        const hasNewAdditional = Object.values(additionalFiles).some(f => !!f);
+                        // require at least one new file selected
+                        if (!hasNewAff && !hasNewPer && !hasNewAdditional) {
+                          toast.error('Please choose at least one file to upload');
+                          return;
                         }
                         setIsUploadingOfferDocs(true);
-                        setMessage('Uploading signed documents...');
+                        setMessage('Uploading documents...');
                         setLoading(true);
                         try {
                           const uploads: UploadedDocument[] = [];
                           const nowTs = Date.now();
-                          if (offerAffidavitFile) {
-                            if (offerAffidavitFile.type !== 'application/pdf') throw new Error('Affidavit must be a PDF');
-                            const path = `${id}/offer_affidavit_${nowTs}.pdf`;
-                            const { data, error } = await supabase.storage.from('application-documents').upload(path, offerAffidavitFile, { contentType: 'application/pdf' });
-                            if (error) throw error;
-                            // insert metadata
-                            const { error: insErr } = await supabase.from('application_documents').insert({ application_id: id, document_type: 'offer_affidavit', file_name: offerAffidavitFile.name, file_path: path, file_size: offerAffidavitFile.size, mime_type: 'application/pdf' } as any);
+
+                          const processFile = async (file: File, docType: string) => {
+                            if ((docType === 'offer_affidavit' || docType === 'offer_personal_info') && file.type !== 'application/pdf') {
+                              throw new Error(`${docType.replace(/_/g, ' ')} must be a PDF`);
+                            }
+                            const extension = file.name.split('.').pop();
+                            const path = `${id}/${docType}_${nowTs}.${extension}`;
+                            const { error: storageErr } = await supabase.storage.from('application-documents').upload(path, file, { contentType: file.type });
+                            if (storageErr) throw storageErr;
+                            const insertId = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                            const insertObj: any = {
+                              id: insertId,
+                              application_id: id,
+                              user_id: user?.id || '',
+                              document_type: docType,
+                              file_name: file.name,
+                              file_path: path,
+                              file_size: file.size,
+                              mime_type: file.type,
+                            };
+                            const { error: insErr } = await supabase.from('application_documents').insert(insertObj);
                             if (insErr) throw insErr;
-                            uploads.push({ document_type: 'offer_affidavit', file_name: offerAffidavitFile.name, file_path: path, file_size: offerAffidavitFile.size, mime_type: 'application/pdf' });
-                          }
-                          if (offerPersonalFormFile) {
-                            if (offerPersonalFormFile.type !== 'application/pdf') throw new Error('Personal info form must be a PDF');
-                            const path = `${id}/offer_personal_info_${nowTs}.pdf`;
-                            const { data, error } = await supabase.storage.from('application-documents').upload(path, offerPersonalFormFile, { contentType: 'application/pdf' });
-                            if (error) throw error;
-                            const { error: insErr } = await supabase.from('application_documents').insert({ application_id: id, document_type: 'offer_personal_info', file_name: offerPersonalFormFile.name, file_path: path, file_size: offerPersonalFormFile.size, mime_type: 'application/pdf' } as any);
-                            if (insErr) throw insErr;
-                            uploads.push({ document_type: 'offer_personal_info', file_name: offerPersonalFormFile.name, file_path: path, file_size: offerPersonalFormFile.size, mime_type: 'application/pdf' });
+                            uploads.push({ document_type: docType, file_name: file.name, file_path: path, file_size: file.size, mime_type: file.type });
+                          };
+
+                          if (offerAffidavitFile) await processFile(offerAffidavitFile, 'offer_affidavit');
+                          if (offerPersonalFormFile) await processFile(offerPersonalFormFile, 'offer_personal_info');
+                          for (const [type, file] of Object.entries(additionalFiles)) {
+                            if (file) await processFile(file, type);
                           }
 
-                          // Update application status (if resubmission, increment counters)
                           const updates: any = { offer_status: 'SIGNED_UPLOADED' };
                           if (application.offer_status === 'RESUBMISSION_REQUIRED') {
                             updates.resubmission_count = (application.resubmission_count || 0) + 1;
@@ -505,14 +630,12 @@ const ApplicationView = () => {
                           if (appErr) throw appErr;
 
                           toast.success('Documents uploaded successfully');
-                          // Refresh documents list
                           const { data: docs, error: docsError } = await supabase.from('application_documents').select('*').eq('application_id', id);
                           if (!docsError && docs) setUploadedDocuments(docs);
-                          // update local application state
                           setApplication((prev: any) => ({ ...prev, ...updates }));
                         } catch (err: any) {
                           logger.error('Error uploading offer documents:', err);
-                          toast.error(err.message || 'Failed to upload documents');
+                          toast.error(JSON.stringify(err) || 'Failed to upload documents');
                         } finally {
                           setIsUploadingOfferDocs(false);
                           setLoading(false);
@@ -521,8 +644,52 @@ const ApplicationView = () => {
                       }}
                       style={{ backgroundColor: '#003A8F', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 'none', boxShadow: '0 6px 18px rgba(0,58,143,0.12)', transition: 'transform 0.12s ease' }}
                     >
-                      {isUploadingOfferDocs ? (offerAffidavitFile && offerPersonalFormFile ? 'Uploading all documents...' : 'Uploading...') : (offerAffidavitFile && offerPersonalFormFile ? 'Upload All Documents' : 'Upload Signed Documents')}
+                      {(() => {
+                        const hasAny = offerAffidavitFile || offerPersonalFormFile || Object.values(additionalFiles).some(f => !!f);
+                        if (isUploadingOfferDocs) return hasAny ? 'Uploading all documents...' : 'Uploading...';
+                        return hasAny ? 'Upload All Documents' : 'Upload Documents';
+                      })()}
                     </button>
+                    {docsComplete && (
+                      <button
+                        disabled={isUploadingOfferDocs}
+                        onClick={async () => {
+                          try {
+                            const docs = uploadedDocuments.map(d => ({
+                              type: d.document_type,
+                              label: d.file_name,
+                              file_path: d.file_path,
+                              file_name: d.file_name
+                            }));
+                            const blob = await mergeDocumentsIntoPDF(
+                              docs,
+                              application.student_number,
+                              application.full_name,
+                              application.department,
+                              application.id,
+                              new Date().toLocaleDateString(),
+                              application.student_number
+                            );
+                            if (blob) {
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `HR_Pack_${application.id}.pdf`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              URL.revokeObjectURL(url);
+                            }
+                          } catch (err) {
+                            logger.error('Error generating student HR pack:', err);
+                            toast.error('Failed to create HR pack');
+                          }
+                        }}
+                        style={{ backgroundColor: '#003A8F', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 'none', boxShadow: '0 6px 18px rgba(0,58,143,0.12)', transition: 'transform 0.12s ease', marginLeft: '1rem' }}
+                      >
+                        Download HR Pack
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -549,6 +716,22 @@ const ApplicationView = () => {
         </div>
       </div>
 
+      {unreadCount > 0 && (
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem 1rem' }}>
+          <div style={{ backgroundColor: '#e0f2fe', border: '1px solid #bae6fd', padding: '1rem 1.5rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <span style={{ color: '#0c4a6e', fontWeight: '500' }}>
+                You have {unreadCount} new message{unreadCount > 1 ? 's' : ''} regarding your application.
+              </span>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setShowMessagesPanel(true)}>
+              View Messages
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
@@ -559,11 +742,11 @@ const ApplicationView = () => {
                 ← Back to Dashboard
               </button>
             </Link>
-            {(application.status === 'draft' || application.status === 'pending') && (
+            {(application.status === 'draft' || application.status === 'pending' || (application as any).is_editable || application.edit_enabled) && (
               <Link to={`/application/${id}/edit`}>
-                <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#003A8F', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: 'white', textDecoration: 'none', cursor: 'pointer', fontWeight: '600', boxShadow: '0 6px 18px rgba(0,58,143,0.12)', transition: 'transform 0.12s ease' }}>
+                <Button>
                   ✏️ Edit Application
-                </button>
+                </Button>
               </Link>
             )}
           </div>
@@ -678,12 +861,12 @@ const ApplicationView = () => {
           </div>
 
           {/* Documents */}
-          <div id="documents-section" style={{ backgroundColor: '#374151', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem', color: 'white' }}>
+          <div id="documents-section" style={{ backgroundColor: '#f9f9faff', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem', color: 'white' }}>
             <div style={{ padding: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 📎 Documents
               </h2>
-              <p style={{ color: '#d1d5db', marginBottom: '1rem' }}>
+              <p style={{ color: '#090c11ff', marginBottom: '1rem' }}>
                 Required documents for your application – please give each file a descriptive name (e.g. "ID_Copy.pdf") so administrators can identify them easily.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -786,9 +969,105 @@ const ApplicationView = () => {
                     </div>
                   </div>
                 )}
+                {application.documents_verified_at && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', position: 'relative', zIndex: 1 }}>
+                    <div style={{ width: '12px', height: '12px', backgroundColor: '#10b981', borderRadius: '50%' }}></div>
+                    <div>
+                      <p style={{ fontWeight: '500', color: '#1f2937' }}>Documents Approved</p>
+                      <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                        {new Date(application.documents_verified_at).toLocaleDateString('en-ZA', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
+
+          {showMessagesPanel && (
+            <div id="messages-section" style={{ marginTop: '2rem', backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937' }}>Messages</h2>
+                <button style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }} onClick={() => setShowMessagesPanel(false)}>×</button>
+              </div>
+              {messages.length === 0 ? (
+                <p style={{ color: '#6b7280' }}>No messages yet.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {messages.map((msg) => (
+                    <div key={msg.id} style={{ border: '1px solid #e2e8f0', borderRadius: '0.375rem', padding: '1rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                        <span style={{ fontWeight: '600' }}>{msg.subject || '(no subject)'}</span>
+                        <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{new Date(msg.created_at).toLocaleString()}</span>
+                      </div>
+                      <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>From: {msg.sender_role === 'ADMIN' ? 'Administrator' : 'You'}</div>
+                      <p style={{ whiteSpace: 'pre-wrap', color: '#1f2937' }}>{msg.message_body}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ marginTop: '1.5rem' }}>
+                <input
+                  type="text"
+                  placeholder="Subject (optional)"
+                  value={newMsgSubject}
+                  onChange={(e) => setNewMsgSubject(e.target.value)}
+                  style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: '0.375rem', padding: '0.5rem', marginBottom: '0.5rem' }}
+                />
+                <textarea
+                  placeholder="Type your reply here..."
+                  value={newMsgBody}
+                  onChange={(e) => setNewMsgBody(e.target.value)}
+                  rows={4}
+                  style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: '0.375rem', padding: '0.75rem' }}
+                />
+                <div style={{ marginTop: '0.75rem', display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    disabled={isSendingMsg || !newMsgBody.trim()}
+                    onClick={async () => {
+                      if (!application || !user?.id) return;
+                      setIsSendingMsg(true);
+                      try {
+                          // determine subject: prefer typed, else previous subject
+                          let subjectToSend = newMsgSubject;
+                          if (!subjectToSend && messages.length) {
+                            subjectToSend = messages[messages.length - 1].subject || '';
+                          }
+                          const ok = await sendMessage({
+                            application_id: application.id,
+                            sender_id: user.id,
+                            sender_role: 'STUDENT',
+                            receiver_id: application.user_id || user.id,
+                            subject: subjectToSend || null,
+                            message_body: newMsgBody,
+                        });
+                        if (!ok) throw new Error('send failed');
+                        await markMessagesRead(application.id, user.id, false);
+                        setNewMsgBody('');
+                          // keep subject field for future replies
+                          setNewMsgSubject(subjectToSend);
+                        await loadMessages();
+                      } catch (err) {
+                        logger.error('Error sending student message:', err);
+                        toast.error('Failed to send message');
+                      } finally {
+                        setIsSendingMsg(false);
+                      }
+                    }}
+                  >
+                    {isSendingMsg ? 'Sending...' : 'Send Reply'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

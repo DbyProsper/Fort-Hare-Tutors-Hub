@@ -119,6 +119,7 @@ export type Database = {
           year_of_study: number
           offer_status: string | null
           offer_sent_at: string | null
+          offer_withdrawn_at: string | null
           offer_affidavit: string | null
           offer_personal_info: string | null
           certified_id: string | null
@@ -127,8 +128,12 @@ export type Database = {
           document_rejection_reason: string | null
           document_rejected_at: string | null
           hr_submitted_at: string | null
+          edit_enabled: boolean
+          is_editable: boolean
         }
         Insert: {
+          edit_enabled?: boolean
+          is_editable?: boolean
           admin_notes?: string | null
           availability?: Json | null
           contact_number: string
@@ -161,6 +166,7 @@ export type Database = {
           year_of_study: number
           offer_status?: string | null
           offer_sent_at?: string | null
+          offer_withdrawn_at?: string | null
           offer_affidavit?: string | null
           offer_personal_info?: string | null
           certified_id?: string | null
@@ -169,6 +175,7 @@ export type Database = {
           document_rejection_reason?: string | null
           document_rejected_at?: string | null
           hr_submitted_at?: string | null
+          edit_enabled?: boolean
         }
         Update: {
           admin_notes?: string | null
@@ -203,6 +210,7 @@ export type Database = {
           year_of_study?: number
           offer_status?: string | null
           offer_sent_at?: string | null
+          offer_withdrawn_at?: string | null
           offer_affidavit?: string | null
           offer_personal_info?: string | null
           certified_id?: string | null
@@ -262,6 +270,45 @@ export type Database = {
           action_type?: string
           action_description?: string | null
           timestamp?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          id: string;
+          application_id: string;
+          sender_id: string;
+          sender_role: 'ADMIN' | 'STUDENT';
+          receiver_role?: 'ADMIN' | 'STUDENT';
+          receiver_id: string;
+          subject: string | null;
+          message_body: string;
+          is_read: boolean;
+          created_at: string;
+        }
+        Insert: {
+          id?: string;
+          application_id: string;
+          sender_id: string;
+          sender_role: 'ADMIN' | 'STUDENT';
+          receiver_id: string;
+          receiver_role?: 'ADMIN' | 'STUDENT';
+          subject?: string | null;
+          message_body: string;
+          is_read?: boolean;
+          created_at?: string;
+        }
+        Update: {
+          id?: string;
+          application_id?: string;
+          sender_id?: string;
+          sender_role?: 'ADMIN' | 'STUDENT';
+          receiver_id?: string;
+          receiver_role?: 'ADMIN' | 'STUDENT';
+          subject?: string | null;
+          message_body?: string;
+          is_read?: boolean;
+          created_at?: string;
         }
         Relationships: []
       }

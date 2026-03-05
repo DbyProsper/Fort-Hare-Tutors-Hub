@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLoading } from '@/contexts/LoadingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { fetchApplicationDocuments, checkDocumentsComplete } from '@/lib/hrDocumentPack';
+import { fetchApplicationDocuments, checkDocumentsComplete, mergeDocumentsIntoPDF } from '@/lib/hrDocumentPack';
 
 const AdminDocuments = () => {
   const { user, isAdmin, isLoading: authLoading } = useAuth();
@@ -74,8 +74,46 @@ const AdminDocuments = () => {
     if (!documentsComplete) return toast.error('All required documents must be uploaded');
     setIsGenerating(true);
     try {
-      // placeholder: call existing function or endpoint in future
-      toast.success('HR pack generation started');
+      // load documents and merge into single PDF using our helper
+      const docs = await fetchApplicationDocuments(appId);
+      // drop anything that isn't a PDF (pdf-lib can't parse other types)
+      const pdfDocs = docs.filter(d => d.file_name?.toLowerCase().endsWith('.pdf'));
+      if (pdfDocs.length === 0) {
+        toast.error('No PDF documents available to include in the HR pack');
+        return;
+      }
+      if (pdfDocs.length < docs.length) {
+        toast.warning('Some non‑PDF files were skipped when generating the pack');
+      }
+      // need application metadata to create cover page
+      const { data: app, error: appErr } = await supabase
+        .from('tutor_applications')
+        .select('student_number, full_name, department')
+        .eq('id', appId)
+        .single();
+      if (appErr) throw appErr;
+      const blob = await mergeDocumentsIntoPDF(
+        pdfDocs,
+        app.student_number,
+        app.full_name,
+        app.department,
+        appId,
+        new Date().toLocaleDateString(),
+        app.student_number
+      );
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `HR_Pack_${appId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('HR pack ready for download');
+      } else {
+        throw new Error('Failed to merge documents');
+      }
     } catch (err) {
       console.error(err);
       toast.error('Failed to generate HR pack');
@@ -141,9 +179,9 @@ const AdminDocuments = () => {
               <div className="space-y-2">
                 {selectedAppDocs.map(d => (
                   <div key={d.file_path} className="flex items-center justify-between p-3 rounded-lg border">
-                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
                       <FileText className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm">{d.file_name}</span>
+                      <span className="text-sm">{d.label ? `${d.label} — ${d.file_name}` : d.file_name}</span>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="ghost" size="sm" onClick={() => downloadDocument(d.file_path, d.file_name)}>

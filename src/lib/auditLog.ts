@@ -20,7 +20,10 @@ export type AuditActionType =
   | 'DOCUMENTS_VERIFIED'
   | 'HR_PACK_GENERATED'
   | 'HR_PACK_DOWNLOADED'
-  | 'HR_PACK_PRINTED';
+  | 'HR_PACK_PRINTED'
+  | 'EMAIL_CLIENT_OPENED'
+  | 'INTERNAL_MESSAGE_SENT'
+  | 'STUDENT_MESSAGE_SENT';
 
 export const createAuditLog = async (
   applicationId: string,

@@ -191,8 +191,12 @@ const EditApplication = () => {
       }
 
       // Check if application can be edited
-      if (data.status !== 'draft' && data.status !== 'pending') {
-        toast.error('This application cannot be edited');
+      if (
+        data.status !== 'draft' &&
+        data.status !== 'pending' &&
+        data.edit_enabled !== true
+      ) {
+        toast.error('This application cannot be edited at its current status.');
         navigate('/dashboard');
         return;
       }
@@ -482,6 +486,9 @@ const EditApplication = () => {
       return;
     }
 
+    // Debug info to help diagnose RLS/access issues
+    console.log('Application editable:', application?.is_editable, 'edit_enabled:', application?.edit_enabled);
+    console.log('Current user:', user?.id);
     setMessage('Submitting your application...');
     setLoading(true);
     try {

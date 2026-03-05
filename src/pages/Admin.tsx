@@ -33,10 +33,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
 import { createAuditLog, fetchAuditLogs, AuditLogEntry } from '@/lib/auditLog';
-import { fetchApplicationDocuments, checkDocumentsComplete, getRequiredDocumentsForPack } from '@/lib/hrDocumentPack';
+import { fetchApplicationDocuments, checkDocumentsComplete, getRequiredDocumentsForPack, mergeDocumentsIntoPDF } from '@/lib/hrDocumentPack';
+import { fetchMessages, sendMessage, markMessagesRead, fetchUnreadCount, MessageRow } from '@/lib/messages';
+import useMessageNotifications from '@/hooks/useMessageNotifications';
 
 interface Application {
   id: string;
+  user_id: string; // needed for messaging
   full_name: string;
   student_number: string;
   email: string;
@@ -75,6 +78,7 @@ interface Application {
   document_rejected_at?: string | null;
   resubmission_count?: number | null;
   last_resubmitted_at?: string | null;
+  edit_enabled?: boolean;
 }
 
 interface Document {
@@ -119,6 +123,13 @@ const Admin = () => {
   const [documentsComplete, setDocumentsComplete] = useState(false);
   const [isGeneratingPack, setIsGeneratingPack] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+  const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [newMsgBody, setNewMsgBody] = useState('');
+  const [isSendingMsg, setIsSendingMsg] = useState(false);
+  const [newMsgSubject, setNewMsgSubject] = useState('');
+  const [allowEdit, setAllowEdit] = useState(false);
+  // track unread message counts per application (for admin notifications)
+  const [appUnreadCounts, setAppUnreadCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!authLoading && isAdmin !== null) {
@@ -137,6 +148,19 @@ const Admin = () => {
     }
   }, [isAdmin]);
 
+  // Use message notifications hook for real-time updates and sound alerts
+  useMessageNotifications(
+    {
+      onApplicationUnreadUpdate: (applicationId, count) => {
+        setAppUnreadCounts(prev => ({
+          ...prev,
+          [applicationId]: count,
+        }));
+      },
+    },
+    isAdmin === true
+  );
+
   const fetchApplications = async () => {
     setMessage('Loading applications...');
     setLoading(true);
@@ -148,12 +172,26 @@ const Admin = () => {
         .order('submitted_at', { ascending: false });
 
       if (error) throw error;
-      setApplications((data as any[] || []).map((app: any) => ({
+      const apps = (((data as any[]) || []).map((app: any) => ({
         ...app,
         subjects_to_tutor: typeof app.subjects_to_tutor === 'string' ? app.subjects_to_tutor.split(',') : app.subjects_to_tutor || [],
         languages_spoken: typeof app.languages_spoken === 'string' ? app.languages_spoken.split(',') : app.languages_spoken || [],
         skills_competencies: typeof app.skills_competencies === 'string' ? app.skills_competencies.split(',') : app.skills_competencies || [],
       })) as Application[]);
+      setApplications(apps);
+      // after setting, load unread counts
+      if (user?.id) {
+        const counts: Record<string, number> = {};
+        await Promise.all(apps.map(async (a) => {
+          try {
+            const c = await fetchUnreadCount(a.id, user.id, true);
+            counts[a.id] = c;
+          } catch (e) {
+            counts[a.id] = 0;
+          }
+        }));
+        setAppUnreadCounts(counts);
+      }
     } catch (error) {
       logger.error('Error fetching applications:', error);
       toast.error('Failed to load applications');
@@ -201,12 +239,36 @@ const Admin = () => {
     }
   };
 
+  const fetchMessagesForApplication = async (applicationId: string) => {
+    try {
+      const msgs = await fetchMessages(applicationId);
+      setMessages(msgs);
+      // keep subject field in sync with latest message from admin if not explicitly changed
+      if (msgs.length) {
+        const last = msgs[msgs.length - 1];
+        setNewMsgSubject(last.subject || '');
+      }
+    } catch (error) {
+      logger.error('Error fetching messages:', error);
+      setMessages([]);
+    }
+  };
+
   const handleViewApplication = async (application: Application) => {
     setSelectedApplication(application);
+    setAllowEdit(application.edit_enabled || false);
     setActiveTab('details');
     await fetchDocuments(application.id);
     await loadAuditLogs(application.id);
     await checkHRPackCompleteness(application.id);
+    await fetchMessagesForApplication(application.id);
+    // mark any messages sent to admin as read
+    if (user?.id) {
+      await markMessagesRead(application.id, user.id, true);
+      // refresh unread counters
+      const newCount = await fetchUnreadCount(application.id, user.id, true);
+      setAppUnreadCounts(prev => ({ ...prev, [application.id]: newCount }));
+    }
     setIsDialogOpen(true);
   };
 
@@ -215,11 +277,23 @@ const Admin = () => {
     setMessage('Withdrawing offer...');
     setLoading(true);
     try {
-      const { error } = await supabase
+      let { error } = await supabase
         .from('tutor_applications')
         .update({ offer_status: 'WITHDRAWN', offer_withdrawn_at: new Date().toISOString() } as any)
         .eq('id', applicationId);
-      if (error) throw error;
+      if (error) {
+        // if the schema cache doesn't know about the column, try again without it
+        if (error.message && error.message.includes("offer_withdrawn_at")) {
+          logger.warn('Retrying withdrawOffer without offer_withdrawn_at');
+          const { error: retryErr } = await supabase
+            .from('tutor_applications')
+            .update({ offer_status: 'WITHDRAWN' } as any)
+            .eq('id', applicationId);
+          if (retryErr) throw retryErr;
+        } else {
+          throw error;
+        }
+      }
 
       await createAuditLog(
         applicationId,
@@ -232,15 +306,51 @@ const Admin = () => {
       toast.success('Offer withdrawn successfully');
       await fetchApplications();
       setIsDialogOpen(false);
-    } catch (err) {
-      logger.error('Error withdrawing offer:', err);
-      toast.error('Failed to withdraw offer');
+    } catch (err: any) {
+      logger.error('Error withdrawing offer:', err?.message ? err.message : JSON.stringify(err));
+      toast.error(err?.message || 'Failed to withdraw offer');
     } finally {
       setIsUpdating(false);
       setLoading(false);
       setMessage('Loading...');
     }
   };
+
+  // open mailto link with appropriate prefilled template
+  const handleEmailStudent = async (application: Application) => {
+    if (!application) return;
+    // prevent double-click by disabling via local state? outside scope, use a simple guard
+    const email = application.email || `${application.student_number}@ufh.ac.za`;
+    const subject = `Tutor Application Query - ${application.student_number}`;
+    const firstName = application.full_name.split(' ')[0] || '';
+    const body = `Dear ${firstName},
+
+I hope this email finds you well.
+
+This message is regarding your Tutor Application.
+Student Number: ${application.student_number}
+Application ID: ${application.id}
+
+[Please insert your query here.]
+
+Kind regards,
+${user?.user_metadata?.full_name || 'Admin'}
+Department of Computer Science
+University of Fort Hare`;
+
+    const mailto = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    // log audit before navigating
+    await createAuditLog(
+      application.id,
+      user?.id || '',
+      user?.email || 'Unknown Admin',
+      'EMAIL_CLIENT_OPENED',
+      'Admin initiated external email to student'
+    );
+    // open in new navigation
+    window.location.href = mailto;
+  };
+
 
   const sendOffer = async (applicationId: string) => {
     setIsSendingOffer(true);
@@ -284,7 +394,12 @@ const Admin = () => {
     try {
       const { error } = await supabase
         .from('tutor_applications')
-        .update({ offer_status: 'VERIFIED', appointment_status: 'FINALIZED' } as any)
+        .update({ 
+          offer_status: 'VERIFIED', 
+          document_rejection_reason: null, 
+          document_rejected_at: null, 
+          documents_verified_at: new Date().toISOString() 
+        } as any)
         .eq('id', applicationId);
       if (error) throw error;
 
@@ -296,6 +411,22 @@ const Admin = () => {
         'DOCUMENTS_VERIFIED',
         'Offer documents verified and approved by HR'
       );
+
+      // notify student via internal message
+      try {
+        if (selectedApplication?.user_id) {
+          await sendMessage({
+            application_id: applicationId,
+            sender_id: user?.id || '',
+            sender_role: 'ADMIN',
+            receiver_id: selectedApplication.user_id,
+            subject: 'Offer documents approved',
+            message_body: 'Your offer documents have been verified and approved. Thank you.'
+          });
+        }
+      } catch (e) {
+        logger.error('Failed to send approval message to student:', e);
+      }
 
       toast.success('Offer documents approved');
       await fetchApplications();
@@ -310,6 +441,7 @@ const Admin = () => {
     }
   };
 
+<<<<<<< HEAD
   // withdraw an offer (either because of rejection or manual admin action)
   /*const withdrawOffer = async (applicationId: string) => {
     setIsUpdating(true);
@@ -334,6 +466,9 @@ const Admin = () => {
     }
   };
  */
+=======
+
+>>>>>>> a75551c063cd5e1608e3332734a17e0e8ceeefb7
   const rejectOfferDocuments = async (applicationId: string, reason: string) => {
     if (!reason.trim()) {
       toast.error('Rejection reason required');
@@ -345,7 +480,12 @@ const Admin = () => {
     try {
       const { error } = await supabase
         .from('tutor_applications')
-        .update({ offer_status: 'WITHDRAWN', document_rejection_reason: reason, document_rejected_at: new Date().toISOString() } as any)
+        .update({ 
+          offer_status: 'RESUBMISSION_REQUIRED', 
+          document_rejection_reason: reason, 
+          document_rejected_at: new Date().toISOString(),
+          documents_verified_at: null 
+        } as any)
         .eq('id', applicationId);
       if (error) throw error;
 
@@ -357,6 +497,22 @@ const Admin = () => {
         'DOCUMENT_REJECTED',
         `Documents rejected with reason: ${reason}`
       );
+
+      // notify student via internal message and prompt resubmission
+      try {
+        if (selectedApplication?.user_id) {
+          await sendMessage({
+            application_id: applicationId,
+            sender_id: user?.id || '',
+            sender_role: 'ADMIN',
+            receiver_id: selectedApplication.user_id,
+            subject: 'Offer documents - resubmission required',
+            message_body: `Your submitted offer documents were rejected. Reason: ${reason}. Please resubmit the requested documents.`
+          });
+        }
+      } catch (e) {
+        logger.error('Failed to send rejection message to student:', e);
+      }
 
       toast.success('Documents rejected; applicant will be asked to resubmit');
       await fetchApplications();
@@ -493,9 +649,32 @@ const Admin = () => {
     setLoading(true);
 
     try {
-      // For now, we'll log the action and trigger the download
-      // In a full implementation, this would call generateHRPackViaFunction()
-      
+      // fetch the latest documents list
+      const docs = await fetchApplicationDocuments(applicationId);
+      const app = selectedApplication;
+      if (!app) throw new Error('Application data missing');
+
+      const blob = await mergeDocumentsIntoPDF(
+        docs,
+        app.student_number,
+        app.full_name,
+        app.department,
+        applicationId,
+        new Date().toLocaleDateString(),
+        app.student_number
+      );
+
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `HR_Pack_${applicationId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
       await createAuditLog(
         applicationId,
         user?.id || '',
@@ -592,8 +771,8 @@ const Admin = () => {
         // withdraw offer if any
         try {
           await supabase.from('tutor_applications').update({ offer_status: 'WITHDRAWN', offer_withdrawn_at: new Date().toISOString() }).eq('id', selectedApplication.id);
-        } catch (err) {
-          logger.error('Error withdrawing offer on rejection:', err);
+        } catch (err: any) {
+          logger.error('Error withdrawing offer on rejection:', err?.message ? err.message : JSON.stringify(err));
         }
         await createAuditLog(selectedApplication.id, user?.id || '', user?.email || 'Unknown Admin', 'APPLICATION_REJECTED', `Application rejected: ${rejectionReason}`);
       } else {
@@ -929,7 +1108,15 @@ const Admin = () => {
                         {app.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-medium">{app.full_name}</p>
+                        <div className="font-medium flex items-center">
+                          {app.full_name}
+                          {appUnreadCounts[app.id] > 0 && (
+                            <>
+                              <span className="ml-2 w-2 h-2 rounded-full bg-destructive inline-block" />
+                              <Badge className="ml-1">{appUnreadCounts[app.id]}</Badge>
+                            </>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">{app.student_number} • {app.faculty}</p>
                       </div>
                     </div>
@@ -945,7 +1132,7 @@ const Admin = () => {
                         {app.submitted_at && new Date(app.submitted_at).toLocaleDateString('en-ZA')}
                       </span>
                       {/* Send Offer button for approved applicants */}
-                      {app.status === 'approved' && !['SENT','ACCEPTED_AWAITING_UPLOAD','SIGNED_UPLOADED','RESUBMISSION_REQUIRED','VERIFIED','HR_SUBMITTED','WITHDRAWN'].includes(app.offer_status || '') && (
+                      {app.status === 'approved' && !['SENT','ACCEPTED_AWAITING_UPLOAD','SIGNED_UPLOADED','RESUBMISSION_REQUIRED','VERIFIED','HR_SUBMITTED'].includes(app.offer_status || '') && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -958,6 +1145,17 @@ const Admin = () => {
                           Send Offer
                         </Button>
                       )}
+                      {/* Email student external button */}
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEmailStudent(app);
+                        }}
+                      >
+                        Email Student
+                      </Button>
                       {/* Withdraw offer button if one has been issued */}
                       {app.offer_status && ['SENT','ACCEPTED_AWAITING_UPLOAD','RESUBMISSION_REQUIRED','SIGNED_UPLOADED','VERIFIED'].includes(app.offer_status) && (
                         <Button
@@ -1019,6 +1217,12 @@ const Admin = () => {
                       className={`px-3 py-2 text-sm font-medium border-b-2 ${activeTab === 'audit' ? 'border-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                     >
                       Audit Trail
+                    </button>
+                    <button 
+                      onClick={() => setActiveTab('messages')} 
+                      className={`px-3 py-2 text-sm font-medium border-b-2 ${activeTab === 'messages' ? 'border-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                    >
+                      Messages
                     </button>
                   </div>
                 </div>
@@ -1211,11 +1415,16 @@ const Admin = () => {
                         <FileArchive className="w-4 h-4" />
                         HR Document Pack
                       </h5>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        {documentsComplete 
-                          ? 'All required documents are ready. Download or print the complete HR onboarding pack below.'
-                          : 'All required onboarding documents must be uploaded before generating the HR Pack.'}
-                      </p>
+                      <div className="flex items-center justify-between mb-4">
+                        <p className="text-sm text-muted-foreground">
+                          {documentsComplete 
+                            ? 'All required documents are ready. Download or print the complete HR onboarding pack below.'
+                            : 'All required onboarding documents must be uploaded before generating the HR Pack.'}
+                        </p>
+                        <Button size="sm" variant="outline" onClick={() => selectedApplication && checkHRPackCompleteness(selectedApplication.id)}>
+                          Refresh
+                        </Button>
+                      </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <div title={!documentsComplete ? 'All required onboarding documents must be uploaded before generating HR Pack' : ''}>
                           <Button 
@@ -1240,6 +1449,112 @@ const Admin = () => {
                       </div>
                     </div>
                   )}
+                </div>
+                )}
+
+                {activeTab === 'messages' && (
+                <div className="space-y-4 py-4">
+                  {messages.length === 0 ? (
+                    <p className="text-muted-foreground">No messages yet. Use the button below to start a conversation.</p>
+                  ) : (
+                    <div className="space-y-6">
+                      {messages.map((msg) => (
+                        <div key={msg.id} className="border rounded p-4 bg-white">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium">{msg.subject || '(no subject)'}</span>
+                            <span className="text-xs text-muted-foreground">{new Date(msg.created_at).toLocaleString()}</span>
+                          </div>
+                          <div className="text-sm text-muted-foreground mb-2">From: {msg.sender_role === 'ADMIN' ? 'Administrator' : 'Student'}</div>
+                          <p className="whitespace-pre-wrap">{msg.message_body}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t">
+                    <h4 className="font-semibold mb-2">New Message</h4>
+                    <input
+                      type="text"
+                      placeholder="Subject (optional)"
+                      className="w-full border rounded px-2 py-1 mb-2"
+                      value={newMsgSubject}
+                      onChange={(e) => setNewMsgSubject(e.target.value)}
+                    />
+                    <Textarea
+                      placeholder="Message body"
+                      value={newMsgBody}
+                      onChange={(e) => setNewMsgBody(e.target.value)}
+                      className="w-full"
+                    />
+                    <div className="flex items-center gap-2 mb-2">
+                      <input
+                          type="checkbox"
+                          id="allow-edit"
+                          checked={allowEdit}
+                          onChange={async (e) => {
+                            const checked = e.target.checked;
+                            setAllowEdit(checked);
+                            if (selectedApplication) {
+                              try {
+                                const { error } = await supabase
+                                  .from('tutor_applications')
+                                  .update({ edit_enabled: checked, is_editable: checked } as any)
+                                  .eq('id', selectedApplication.id);
+                                if (error) throw error;
+                                // also update local copy so future sends use accurate state
+                                setSelectedApplication(prev => prev ? { ...prev, edit_enabled: checked, is_editable: checked } : prev);
+                              } catch (err) {
+                                logger.error('Error updating edit_enabled flag:', err);
+                                toast.error('Failed to update edit permission');
+                              }
+                            }
+                          }}
+                        />
+                      <label htmlFor="allow-edit" className="text-sm">Allow student to edit application</label>
+                    </div>
+                    <Button
+                      className="mt-2"
+                      disabled={isSendingMsg || !newMsgBody.trim()}
+                      onClick={async () => {
+                        if (!selectedApplication) return;
+                        setIsSendingMsg(true);
+                        try {
+                          const ok = await sendMessage({
+                            application_id: selectedApplication.id,
+                            sender_id: user?.id || '',
+                            sender_role: 'ADMIN',
+                            receiver_id: selectedApplication.user_id || '',
+                            subject: newMsgSubject || null,
+                            message_body: newMsgBody,
+                          });
+                          if (!ok) throw new Error('send failed');
+                          // update edit_enabled and is_editable flags based on checkbox
+                          await supabase
+                            .from('tutor_applications')
+                            .update({ edit_enabled: allowEdit, is_editable: allowEdit } as any)
+                            .eq('id', selectedApplication.id);
+                          await createAuditLog(
+                            selectedApplication.id,
+                            user?.id || '',
+                            user?.email || 'Unknown Admin',
+                            'INTERNAL_MESSAGE_SENT',
+                            'Admin sent internal message regarding application'
+                          );
+                          setNewMsgBody('');
+                          // leave subject intact; it will be refreshed by fetchMessagesForApplication
+                          setAllowEdit(false);
+                          await fetchMessagesForApplication(selectedApplication.id);
+                        } catch (err) {
+                          logger.error('Error sending message:', err);
+                          toast.error('Failed to send message');
+                        } finally {
+                          setIsSendingMsg(false);
+                        }
+                      }}
+                    >
+                      {isSendingMsg ? 'Sending…' : 'Send Message'}
+                    </Button>
+                  </div>
                 </div>
                 )}
 
