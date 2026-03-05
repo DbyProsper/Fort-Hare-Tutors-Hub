@@ -311,7 +311,7 @@ const Admin = () => {
   };
 
   // withdraw an offer (either because of rejection or manual admin action)
-  const withdrawOffer = async (applicationId: string) => {
+  /*const withdrawOffer = async (applicationId: string) => {
     setIsUpdating(true);
     setMessage('Withdrawing offer...');
     setLoading(true);
@@ -333,7 +333,7 @@ const Admin = () => {
       setMessage('Loading...');
     }
   };
-
+ */
   const rejectOfferDocuments = async (applicationId: string, reason: string) => {
     if (!reason.trim()) {
       toast.error('Rejection reason required');
