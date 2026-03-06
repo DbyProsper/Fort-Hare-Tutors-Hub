@@ -135,37 +135,37 @@ const AdminDocuments = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white overflow-x-hidden">
       <header className="bg-yellow-50 text-sidebar-foreground sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/admin" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-yellow-400 flex items-center justify-center">
+        <div className="w-full px-4 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <Link to="/admin" className="flex items-center gap-2 md:gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-lg bg-yellow-400 flex items-center justify-center flex-shrink-0">
               <UFHLogo className="w-10 h-10" />
             </div>
-            <div>
-              <h1 className="font-bold text-lg text-gray-800">Documents Manager</h1>
-              <p className="text-xs text-muted-foreground">View applicant uploads and compile HR packs</p>
+            <div className="min-w-0">
+              <h1 className="font-bold text-base md:text-lg text-gray-800 truncate">Documents Manager</h1>
+              <p className="text-xs text-muted-foreground truncate">View applicant uploads and compile HR packs</p>
             </div>
           </Link>
-          <div>
-            <Button asChild>
+          <div className="w-full md:w-auto">
+            <Button asChild className="w-full md:w-auto">
               <a href="/admin">Back to Admin</a>
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="w-full px-4 py-6 md:py-8 overflow-x-hidden">
         {mergeWarnings.length > 0 && (
-          <div className="mb-6 p-4 rounded-lg border border-yellow-200 bg-yellow-50">
-            <div className="flex items-start gap-3">
+          <div className="mb-6 p-3 md:p-4 rounded-lg border border-yellow-200 bg-yellow-50 overflow-x-hidden">
+            <div className="flex items-start gap-2 md:gap-3">
               <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <h3 className="font-semibold text-yellow-900 mb-2">⚠ Some documents could not be merged</h3>
-                <p className="text-sm text-yellow-800 mb-3">The following files are encrypted and were replaced with placeholders in the HR Pack. Please download them manually from the applicant profile if required:</p>
-                <ul className="text-sm text-yellow-800 space-y-1">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-yellow-900 mb-2 text-sm md:text-base">⚠ Some documents could not be merged</h3>
+                <p className="text-xs md:text-sm text-yellow-800 mb-3">The following files are encrypted and were replaced with placeholders in the HR Pack. Please download them manually from the applicant profile if required:</p>
+                <ul className="text-xs md:text-sm text-yellow-800 space-y-1">
                   {mergeWarnings.map((warning, idx) => (
-                    <li key={idx}>• <strong>{warning.name}</strong>: {warning.reason}</li>
+                    <li key={idx} className="break-words">• <strong>{warning.name}</strong>: {warning.reason}</li>
                   ))}
                 </ul>
               </div>
@@ -174,21 +174,22 @@ const AdminDocuments = () => {
         )}
         <Card className="border-0 shadow-lg">
           <CardHeader>
-            <CardTitle>Applicant Documents</CardTitle>
+            <CardTitle className="text-base md:text-lg">Applicant Documents</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-3 overflow-x-hidden">
               {applications.map(app => (
-                <div key={app.id} className="flex items-center justify-between p-4 rounded-lg border bg-card hover:shadow-md transition-shadow">
-                  <div>
-                    <p className="font-medium">{app.full_name}</p>
-                    <p className="text-sm text-muted-foreground">{app.student_number} • {app.faculty}</p>
+                <div key={app.id} className="flex flex-col md:flex-row md:items-center justify-between p-3 md:p-4 rounded-lg border bg-card hover:shadow-md transition-shadow gap-3 md:gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate text-sm md:text-base">{app.full_name}</p>
+                    <p className="text-xs md:text-sm text-muted-foreground truncate">{app.student_number} • {app.faculty}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={() => openDocuments(app)}>View Documents</Button>
-                    <Button size="sm" variant="outline" onClick={() => generateHRPack(app.id)} disabled={!documentsComplete || isGenerating}>
+                  <div className="flex gap-2 flex-col sm:flex-row w-full md:w-auto">
+                    <Button size="sm" onClick={() => openDocuments(app)} className="text-xs md:text-sm flex-1 md:flex-none">View Documents</Button>
+                    <Button size="sm" variant="outline" onClick={() => generateHRPack(app.id)} disabled={!documentsComplete || isGenerating} className="text-xs md:text-sm flex-1 md:flex-none">
                       {isGenerating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileArchive className="w-4 h-4 mr-2" />}
-                      Generate HR Pack
+                      <span className="hidden sm:inline">Generate HR Pack</span>
+                      <span className="sm:hidden">Generate</span>
                     </Button>
                   </div>
                 </div>
@@ -199,20 +200,20 @@ const AdminDocuments = () => {
 
         {/* Simple modal-like area for selected application documents */}
         {selectedApp && (
-          <div className="mt-6 p-4 border rounded bg-muted/10">
-            <h3 className="font-semibold mb-2">{selectedApp.full_name} — Documents</h3>
+          <div className="mt-6 p-3 md:p-4 border rounded bg-muted/10 overflow-x-hidden">
+            <h3 className="font-semibold mb-3 text-sm md:text-base truncate">{selectedApp.full_name} — Documents</h3>
             {selectedAppDocs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No documents uploaded</p>
+              <p className="text-xs md:text-sm text-muted-foreground">No documents uploaded</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 overflow-x-hidden">
                 {selectedAppDocs.map(d => (
-                  <div key={d.file_path} className="flex items-center justify-between p-3 rounded-lg border">
-                      <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm">{d.label ? `${d.label} — ${d.file_name}` : d.file_name}</span>
+                  <div key={d.file_path} className="flex flex-col sm:flex-row sm:items-center justify-between p-2 md:p-3 rounded-lg border gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-xs md:text-sm truncate">{d.label ? `${d.label} — ${d.file_name}` : d.file_name}</span>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => downloadDocument(d.file_path, d.file_name)}>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button variant="ghost" size="sm" onClick={() => downloadDocument(d.file_path, d.file_name)} className="p-2 h-auto">
                         <Download className="w-4 h-4" />
                       </Button>
                     </div>
