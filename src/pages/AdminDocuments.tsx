@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, Download, FileArchive, Loader2 } from 'lucide-react';
+import { FileText, Download, FileArchive, Loader2, AlertCircle } from 'lucide-react';
 import { UFHLogo } from '@/components/UFHLogo';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLoading } from '@/contexts/LoadingContext';
@@ -18,6 +18,7 @@ const AdminDocuments = () => {
   const [selectedApp, setSelectedApp] = useState<any | null>(null);
   const [documentsComplete, setDocumentsComplete] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [mergeWarnings, setMergeWarnings] = useState<Array<{ name: string; reason: string }>>([]);
 
   useEffect(() => {
     if (isAdmin) fetchApplications();
@@ -73,6 +74,7 @@ const AdminDocuments = () => {
   const generateHRPack = async (appId: string) => {
     if (!documentsComplete) return toast.error('All required documents must be uploaded');
     setIsGenerating(true);
+    setMergeWarnings([]);
     try {
       // load documents and merge into single PDF using our helper
       const docs = await fetchApplicationDocuments(appId);
@@ -92,7 +94,7 @@ const AdminDocuments = () => {
         .eq('id', appId)
         .single();
       if (appErr) throw appErr;
-      const blob = await mergeDocumentsIntoPDF(
+      const result = await mergeDocumentsIntoPDF(
         pdfDocs,
         app.student_number,
         app.full_name,
@@ -101,8 +103,9 @@ const AdminDocuments = () => {
         new Date().toLocaleDateString(),
         app.student_number
       );
-      if (blob) {
-        const url = URL.createObjectURL(blob);
+      
+      if (result.blob) {
+        const url = URL.createObjectURL(result.blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `HR_Pack_${appId}.pdf`;
@@ -110,7 +113,16 @@ const AdminDocuments = () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        toast.success('HR pack ready for download');
+        
+        // Show merge result
+        if (result.failedDocuments.length > 0) {
+          setMergeWarnings(result.failedDocuments);
+          toast.warning(
+            `⚠ Some documents could not be merged due to encryption. They have been replaced with placeholders in the HR Pack. Please download the original files manually from the applicant profile if required.`
+          );
+        } else {
+          toast.success('HR pack ready for download');
+        }
       } else {
         throw new Error('Failed to merge documents');
       }
@@ -144,6 +156,22 @@ const AdminDocuments = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {mergeWarnings.length > 0 && (
+          <div className="mb-6 p-4 rounded-lg border border-yellow-200 bg-yellow-50">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-semibold text-yellow-900 mb-2">⚠ Some documents could not be merged</h3>
+                <p className="text-sm text-yellow-800 mb-3">The following files are encrypted and were replaced with placeholders in the HR Pack. Please download them manually from the applicant profile if required:</p>
+                <ul className="text-sm text-yellow-800 space-y-1">
+                  {mergeWarnings.map((warning, idx) => (
+                    <li key={idx}>• <strong>{warning.name}</strong>: {warning.reason}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
         <Card className="border-0 shadow-lg">
           <CardHeader>
             <CardTitle>Applicant Documents</CardTitle>

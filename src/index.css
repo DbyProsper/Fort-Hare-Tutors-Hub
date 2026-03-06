@@ -250,4 +250,80 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
   }
+
+  /* Responsive layout utilities */
+  .container-responsive {
+    @apply w-full h-full overflow-x-hidden overflow-y-auto;
+  }
+
+  .page-container {
+    @apply min-h-screen w-full overflow-x-hidden;
+  }
+
+  .page-padding {
+    @apply px-4 md:px-6 lg:px-8 py-6 md:py-8;
+  }
+
+  .section-spacing {
+    @apply mb-6 md:mb-8 lg:mb-10;
+  }
+
+  /* Responsive button group */
+  .button-group {
+    @apply flex flex-col sm:flex-row gap-2 md:gap-3;
+  }
+
+  .button-group-vertical {
+    @apply flex flex-col gap-2 md:gap-3;
+  }
+
+  .button-group-horizontal {
+    @apply flex flex-row gap-2 md:gap-3 flex-wrap;
+  }
+
+  /* Responsive card */
+  .card-responsive {
+    @apply w-full rounded-lg border shadow-sm p-4 md:p-6;
+  }
+
+  /* Responsive table wrapper */
+  .table-responsive {
+    @apply w-full overflow-x-auto;
+  }
+
+  .table-responsive table {
+    @apply w-full border-collapse;
+  }
+
+  /* Responsive grid utilities */
+  .grid-cols-responsive {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6;
+  }
+
+  .grid-cols-responsive-2 {
+    @apply grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6;
+  }
+
+  /* No horizontal scroll fix */
+  * {
+    @apply max-w-full;
+  }
+
+  /* Text sizing responsive */
+  .text-responsive-lg {
+    @apply text-lg md:text-xl lg:text-2xl;
+  }
+
+  .text-responsive-md {
+    @apply text-base md:text-lg lg:text-xl;
+  }
+
+  /* Mobile-first spacing */
+  .mb-responsive {
+    @apply mb-4 md:mb-6 lg:mb-8;
+  }
+
+  .gap-responsive {
+    @apply gap-3 md:gap-4 lg:gap-6;
+  }
 }

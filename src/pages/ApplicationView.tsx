@@ -372,31 +372,31 @@ const ApplicationView = () => {
   const currentStatus = statusConfig[application.status as keyof typeof statusConfig] || statusConfig.draft;
 
   return (
-    <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, sans-serif', backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(0,58,143,0.05) 0%, transparent 50%)', backgroundAttachment: 'fixed' }}>
+    <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, sans-serif', backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(0,58,143,0.05) 0%, transparent 50%)', backgroundAttachment: 'fixed', overflowX: 'hidden' }}>
       {/* Header */}
       <header style={{ backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderTop: '3px solid #003A8F' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '1rem', textDecoration: 'none', color: 'inherit' }}>
-              <div style={{ width: '40px', height: '40px', backgroundColor: '#003A8F', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,58,143,0.2)' }}>
+        <div style={{ maxWidth: '100%', margin: '0 auto', padding: '1rem', overflowX: 'hidden' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+            <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '1rem', textDecoration: 'none', color: 'inherit', minWidth: 0 }}>
+              <div style={{ width: '40px', height: '40px', backgroundColor: '#003A8F', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,58,143,0.2)', flexShrink: 0 }}>
                 <UFHLogo />
               </div>
-              <div>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1f2937' }}>UFH Tutors</h1>
-                <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>University of Fort Hare</p>
+              <div style={{ minWidth: 0 }}>
+                <h1 style={{ fontSize: 'clamp(1rem, 3vw, 1.5rem)', fontWeight: 'bold', color: '#1f2937', margin: 0 }}>UFH Tutors</h1>
+                <p style={{ fontSize: 'clamp(0.75rem, 2vw, 0.875rem)', color: '#6b7280', margin: 0 }}>University of Fort Hare</p>
               </div>
             </Link>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Welcome, {user?.user_metadata?.full_name || user?.email}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <span style={{ fontSize: 'clamp(0.75rem, 2vw, 0.875rem)', color: '#6b7280', display: 'none', minWidth: 0, '@media (minWidth: 768px)': { display: 'block' } }}>Welcome, {user?.user_metadata?.full_name || user?.email}</span>
               <button onClick={() => {
                 setShowMessagesPanel(true);
-              }} title="Messages" style={{ backgroundColor: 'transparent', border: '1px solid #d1d5db', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              }} title="Messages" style={{ backgroundColor: 'transparent', border: '1px solid #d1d5db', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 'auto' }}>
                 <MessageSquare size={16} />
                 {unreadCount > 0 && <span style={{ background: '#dc2626', color: 'white', padding: '2px 6px', borderRadius: '12px', fontSize: '0.75rem' }}>{unreadCount}</span>}
               </button>
               <button 
                 onClick={handleSignOut}
-                style={{ backgroundColor: 'transparent', border: '1px solid #d1d5db', padding: '0.5rem 1rem', borderRadius: '0.375rem', color: '#6b7280', cursor: 'pointer' }}
+                style={{ backgroundColor: 'transparent', border: '1px solid #d1d5db', padding: '0.5rem 1rem', borderRadius: '0.375rem', color: '#6b7280', cursor: 'pointer', fontSize: 'clamp(0.75rem, 2vw, 0.875rem)' }}
               >
                 Sign Out
               </button>
@@ -482,7 +482,7 @@ const ApplicationView = () => {
                     <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.5rem' }}>You can now upload all required documents here. Each document will be sent directly to the admin for verification.</p>
                     <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Additionally, you must download, print, and sign the two forms below, then upload the signed versions.</p>
                   </div>
-                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap', justifyContent: 'stretch' }}>
                     <button
                       onClick={() => downloadTemplateFile('tutor_personal_form.pdf', 'Tutor Personal Information Form')}
                       style={{
@@ -492,14 +492,14 @@ const ApplicationView = () => {
                         border: 'none',
                         borderRadius: '0.375rem',
                         cursor: 'pointer',
-                        fontSize: '0.875rem',
+                        fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
                         fontWeight: '500',
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: '0.5rem',
                         flex: '1 1 auto',
-                        minWidth: '150px',
-                        justifyContent: 'center',
+                        minWidth: '120px',
                         boxShadow: '0 6px 18px rgba(0,58,143,0.08)'
                       }}
                     >
@@ -515,14 +515,14 @@ const ApplicationView = () => {
                         border: 'none',
                         borderRadius: '0.375rem',
                         cursor: 'pointer',
-                        fontSize: '0.875rem',
+                        fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
                         fontWeight: '500',
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: '0.5rem',
                         flex: '1 1 auto',
-                        minWidth: '150px',
-                        justifyContent: 'center',
+                        minWidth: '120px',
                         boxShadow: '0 6px 18px rgba(0,58,143,0.08)'
                       }}
                     >
@@ -530,41 +530,41 @@ const ApplicationView = () => {
                       Download Affidavit
                     </button>
                   </div>
-                  <h4 id="upload-section" style={{ fontWeight: '600', fontSize: '1rem', color: '#1f2937', marginBottom: '1rem' }}>Upload All Required Documents</h4>
-                  <p style={{ fontSize: '0.85rem', color: '#374151', marginBottom: '0.75rem' }}>Please name your files clearly (e.g. <em>StudentNumber_DocumentType.pdf</em>) so the Admin can identify them.</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>✓ Signed Acceptance Affidavit</label>
+                  <h4 id="upload-section" style={{ fontWeight: '600', fontSize: 'clamp(0.875rem, 2vw, 1rem)', color: '#1f2937', marginBottom: '1rem' }}>Upload All Required Documents</h4>
+                  <p style={{ fontSize: 'clamp(0.75rem, 2vw, 0.85rem)', color: '#374151', marginBottom: '0.75rem', wordBreak: 'break-word' }}>Please name your files clearly (e.g. <em>StudentNumber_DocumentType.pdf</em>) so the Admin can identify them.</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem', overflowX: 'hidden' }}>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa', overflowX: 'hidden' }}>
+                      <label style={{ display: 'block', fontSize: 'clamp(0.75rem, 2vw, 0.875rem)', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem', wordBreak: 'break-word' }}>✓ Signed Acceptance Affidavit</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Signed & notarized</p>
                       <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferAffidavitFile(e.target.files?.[0] || null)} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>✓ Signed Personal Info Form</label>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa', overflowX: 'hidden' }}>
+                      <label style={{ display: 'block', fontSize: 'clamp(0.75rem, 2vw, 0.875rem)', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem', wordBreak: 'break-word' }}>✓ Signed Personal Info Form</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Signed & notarized</p>
                       <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setOfferPersonalFormFile(e.target.files?.[0] || null)} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>Certified ID / Passport / Study Permit</label>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa', overflowX: 'hidden' }}>
+                      <label style={{ display: 'block', fontSize: 'clamp(0.75rem, 2vw, 0.875rem)', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem', wordBreak: 'break-word' }}>Certified ID / Passport / Study Permit</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Certified copy (within 3 months)</p>
                       <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, certified_id: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>Academic Transcript</label>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa', overflowX: 'hidden' }}>
+                      <label style={{ display: 'block', fontSize: 'clamp(0.75rem, 2vw, 0.875rem)', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem', wordBreak: 'break-word' }}>Academic Transcript</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Official UFH transcript</p>
                       <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, academic_transcript: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>CV / Resume</label>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa', overflowX: 'hidden' }}>
+                      <label style={{ display: 'block', fontSize: 'clamp(0.75rem, 2vw, 0.875rem)', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem', wordBreak: 'break-word' }}>CV / Resume</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>PDF preferred</p>
                       <input disabled={isUploadingOfferDocs} accept="application/pdf" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, cv: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>Proof of Registration</label>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa', overflowX: 'hidden' }}>
+                      <label style={{ display: 'block', fontSize: 'clamp(0.75rem, 2vw, 0.875rem)', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem', wordBreak: 'break-word' }}>Proof of Registration</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Current year registration</p>
                       <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, proof_of_registration: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa' }}>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem' }}>3 Months Bank Statement</label>
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#fafafa', overflowX: 'hidden' }}>
+                      <label style={{ display: 'block', fontSize: 'clamp(0.75rem, 2vw, 0.875rem)', fontWeight: '600', color: '#1f2937', marginBottom: '0.5rem', wordBreak: 'break-word' }}>3 Months Bank Statement</label>
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem' }}>Recent bank statement stamped</p>
                       <input disabled={isUploadingOfferDocs} accept="application/pdf,image/*" type="file" onChange={(e) => setAdditionalFiles(prev => ({ ...prev, bank_statement: e.target.files?.[0] || null }))} style={{ width: '100%', fontSize: '0.75rem' }} />
                     </div>
@@ -698,18 +698,18 @@ const ApplicationView = () => {
 
       {/* Status Banner */}
       <div style={{ backgroundColor: 'white', borderBottom: '1px solid #e2e8f0' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ width: '48px', height: '48px', backgroundColor: '#dbeafe', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ maxWidth: '100%', margin: '0 auto', padding: 'clamp(1rem, 5vw, 2rem) 1rem', overflowX: 'hidden' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexDirection: 'row', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(0.5rem, 3vw, 1rem)', minWidth: 0 }}>
+              <div style={{ width: '48px', height: '48px', backgroundColor: '#dbeafe', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span style={{ fontSize: '1.5rem' }}>📄</span>
               </div>
-              <div>
-                <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#1f2937' }}>Application Details</h1>
-                <p style={{ color: '#6b7280' }}>{currentStatus?.description}</p>
+              <div style={{ minWidth: 0 }}>
+                <h1 style={{ fontSize: 'clamp(1.25rem, 4vw, 1.875rem)', fontWeight: 'bold', color: '#1f2937', margin: 0 }}>Application Details</h1>
+                <p style={{ color: '#6b7280', margin: 0, fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>{currentStatus?.description}</p>
               </div>
             </div>
-            <div style={{ backgroundColor: 'rgba(253,185,19,0.18)', color: '#003A8F', padding: '0.5rem 1rem', borderRadius: '999px', fontWeight: '600', border: '1px solid rgba(253,185,19,0.25)' }}>
+            <div style={{ backgroundColor: 'rgba(253,185,19,0.18)', color: '#003A8F', padding: '0.5rem 1rem', borderRadius: '999px', fontWeight: '600', border: '1px solid rgba(253,185,19,0.25)', whiteSpace: 'nowrap', flexShrink: 0 }}>
               {currentStatus?.label}
             </div>
           </div>
@@ -733,12 +733,12 @@ const ApplicationView = () => {
       )}
 
       {/* Main Content */}
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+      <main style={{ maxWidth: '100%', margin: '0 auto', padding: 'clamp(1rem, 5vw, 2rem)', overflowX: 'hidden' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', overflowX: 'hidden' }}>
           {/* Back Button and Edit Button */}
-          <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <Link to="/dashboard">
-              <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'white', border: '2px solid #003A8F', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: '#003A8F', textDecoration: 'none', cursor: 'pointer', fontWeight: '600' }}>
+              <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'white', border: '2px solid #003A8F', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', color: '#003A8F', textDecoration: 'none', cursor: 'pointer', fontWeight: '600', fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>
                 ← Back to Dashboard
               </button>
             </Link>
@@ -752,39 +752,39 @@ const ApplicationView = () => {
           </div>
 
           {/* Personal Information */}
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
-            <div style={{ padding: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem', overflowX: 'hidden' }}>
+            <div style={{ padding: 'clamp(1rem, 3vw, 1.5rem)' }}>
+              <h2 style={{ fontSize: 'clamp(1rem, 3vw, 1.25rem)', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 👤 Personal Information
               </h2>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Full Name</label>
-                  <p style={{ color: '#1f2937' }}>{application.full_name}</p>
+                  <p style={{ color: '#1f2937', wordBreak: 'break-word' }}>{application.full_name}</p>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Student Number</label>
-                  <p style={{ color: '#1f2937' }}>{application.student_number}</p>
+                  <p style={{ color: '#1f2937', wordBreak: 'break-word' }}>{application.student_number}</p>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Date of Birth</label>
-                  <p style={{ color: '#1f2937' }}>{application.date_of_birth}</p>
+                  <p style={{ color: '#1f2937', wordBreak: 'break-word' }}>{application.date_of_birth}</p>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Gender</label>
-                  <p style={{ color: '#1f2937' }}>{application.gender || 'Not specified'}</p>
+                  <p style={{ color: '#1f2937', wordBreak: 'break-word' }}>{application.gender || 'Not specified'}</p>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Nationality</label>
-                  <p style={{ color: '#1f2937' }}>{application.nationality}</p>
+                  <p style={{ color: '#1f2937', wordBreak: 'break-word' }}>{application.nationality}</p>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Contact Number</label>
-                  <p style={{ color: '#1f2937' }}>{application.contact_number}</p>
+                  <p style={{ color: '#1f2937', wordBreak: 'break-word' }}>{application.contact_number}</p>
                 </div>
-                <div style={{ gridColumn: 'span 2' }}>
+                <div style={{ gridColumn: '1 / -1' }}>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Residential Address</label>
-                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap' }}>{application.residential_address}</p>
+                  <p style={{ color: '#1f2937', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{application.residential_address}</p>
                 </div>
               </div>
             </div>
