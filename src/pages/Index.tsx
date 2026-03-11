@@ -107,10 +107,6 @@ const Index = () => {
             </p>
           </div>
 
-          {/* Video Section */}
-          <div className="mb-16">
-            <TutorSystemStoryVideo />
-          </div>
           <div className="grid md:grid-cols-3 gap-8">
             <Card className="group border-0 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 overflow-hidden">
               <CardContent className="p-8">
@@ -145,6 +141,10 @@ const Index = () => {
                 </p>
               </CardContent>
             </Card>
+          </div>
+          {/* Video Section */}
+          <div className="mt-16">
+            <TutorSystemStoryVideo />
           </div>
         </div>
       </section>
