@@ -5,6 +5,7 @@ import { Users, FileCheck, ChevronRight, CheckCircle2, Clock, Shield, Graduation
 import { UFHLogo } from '@/components/UFHLogo';
 import { useAuth } from '@/contexts/AuthContext';
 import Typewriter from '@/components/Typewriter';
+import TutorSystemStoryVideo from '@/components/TutorSystemStoryVideo';
 
 
 const Index = () => {
@@ -104,6 +105,11 @@ const Index = () => {
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               Being a tutor is more than just a job—it's an opportunity to grow, lead, and inspire.
             </p>
+          </div>
+
+          {/* Video Section */}
+          <div className="mb-16">
+            <TutorSystemStoryVideo />
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             <Card className="group border-0 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 overflow-hidden">
