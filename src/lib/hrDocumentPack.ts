@@ -14,6 +14,15 @@ export interface DocumentForPack {
   mime_type?: string;
 }
 
+export interface MergeResult {
+  blob: Blob | null;
+  failedDocuments: Array<{
+    name: string;
+    reason: string;
+  }>;
+  placeholdersInserted: number;
+}
+
 export const fetchApplicationDocuments = async (applicationId: string): Promise<DocumentForPack[]> => {
   try {
     const { data, error } = await supabase
@@ -178,6 +187,91 @@ export const generateCoverPagePDF = async (
   }
 };
 
+const createPlaceholderPage = async (
+  mergedPdf: any,
+  documentName: string
+): Promise<void> => {
+  try {
+    const placeholderPdf = await PDFDocument.create();
+    const page = placeholderPdf.addPage([612, 792]); // Standard letter size
+    const { width, height } = page.getSize();
+    const font = await placeholderPdf.embedFont(StandardFonts.Helvetica);
+    const boldFont = await placeholderPdf.embedFont(StandardFonts.HelveticaBold);
+
+    // Draw warning box
+    page.drawRectangle({
+      x: 50,
+      y: height - 150,
+      width: width - 100,
+      height: 100,
+      borderColor: rgb(0.9, 0.2, 0.2),
+      borderWidth: 3,
+    });
+
+    // Title
+    page.drawText('DOCUMENT COULD NOT BE MERGED', {
+      x: 70,
+      y: height - 75,
+      font: boldFont,
+      size: 16,
+      color: rgb(0.9, 0.2, 0.2),
+    });
+
+    // Details
+    page.drawText(
+      'This file is encrypted and could not be decrypted automatically.',
+      {
+        x: 70,
+        y: height - 100,
+        font: font,
+        size: 12,
+        color: rgb(0.2, 0.2, 0.2),
+      }
+    );
+
+    page.drawText(`Document Name: ${documentName}`, {
+      x: 70,
+      y: height - 120,
+      font: font,
+      size: 12,
+      color: rgb(0.2, 0.2, 0.2),
+    });
+
+    page.drawText('Please download it manually from the applicant profile.', {
+      x: 70,
+      y: height - 140,
+      font: font,
+      size: 11,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+
+    const placeholderPages = await mergedPdf.copyPages(
+      placeholderPdf,
+      placeholderPdf.getPageIndices()
+    );
+
+    placeholderPages.forEach((p) => mergedPdf.addPage(p));
+  } catch (err) {
+    logger.error('Error creating placeholder page:', err);
+  }
+};
+
+const tryDecryptPDF = async (
+  bytes: ArrayBuffer,
+  passwords: string[]
+): Promise<any | null> => {
+  for (const password of passwords) {
+    try {
+      const pdf = await PDFDocument.load(bytes, { password });
+      return pdf;
+    } catch (e: any) {
+      // Continue to next password
+      continue;
+    }
+  }
+  return null;
+};
+
 export const mergeDocumentsIntoPDF = async (
   documents: DocumentForPack[],
   studentNumber: string,
@@ -186,10 +280,12 @@ export const mergeDocumentsIntoPDF = async (
   applicationId: string,
   dateVerified: string,
   studentId: string
-): Promise<Blob | null> => {
+): Promise<MergeResult> => {
   try {
     const mergedPdf = await PDFDocument.create();
     let validPdfCount = 0;
+    const failedDocuments: Array<{ name: string; reason: string }> = [];
+    let placeholdersInserted = 0;
 
     // ✅ Generate cover page
     const coverBlob = await generateCoverPagePDF(
@@ -210,36 +306,48 @@ export const mergeDocumentsIntoPDF = async (
           coverDoc,
           coverDoc.getPageIndices()
         );
-        coverPages.forEach(p => mergedPdf.addPage(p));
+        coverPages.forEach((p) => mergedPdf.addPage(p));
         validPdfCount++;
       } else {
-        console.error('Cover page is not a valid PDF');
+        logger.error('Cover page is not a valid PDF');
       }
     }
 
     // ✅ Merge each uploaded document safely
     for (const doc of documents) {
       try {
-        console.log('Downloading:', doc.file_path);
+        logger.log('Downloading:', doc.file_path);
 
         const { data, error } = await supabase.storage
           .from('application-documents')
           .download(doc.file_path);
 
         if (error) {
-          console.error('Storage error:', error);
+          logger.error('Storage error:', error);
+          failedDocuments.push({
+            name: doc.file_name,
+            reason: 'Failed to download from storage',
+          });
           continue;
         }
 
         if (!data) {
-          console.error('No data returned for:', doc.file_path);
+          logger.error('No data returned for:', doc.file_path);
+          failedDocuments.push({
+            name: doc.file_name,
+            reason: 'No data returned from storage',
+          });
           continue;
         }
 
         const bytes = await data.arrayBuffer();
 
         if (bytes.byteLength === 0) {
-          console.error('Empty file skipped:', doc.file_path);
+          logger.error('Empty file skipped:', doc.file_path);
+          failedDocuments.push({
+            name: doc.file_name,
+            reason: 'File is empty',
+          });
           continue;
         }
 
@@ -247,56 +355,115 @@ export const mergeDocumentsIntoPDF = async (
         const header = new TextDecoder().decode(bytes.slice(0, 5));
 
         if (!header.startsWith('%PDF-')) {
-          console.error('Invalid PDF skipped:', doc.file_path);
+          logger.error('Invalid PDF skipped:', doc.file_path);
+          failedDocuments.push({
+            name: doc.file_name,
+            reason: 'Not a valid PDF file',
+          });
           continue;
         }
 
-        let pdf;
+        let pdf: any = null;
+
         try {
           // Try loading without password first
+          logger.log(`Attempting to load PDF: ${doc.file_name}`);
           pdf = await PDFDocument.load(bytes);
+          logger.log(`Successfully loaded unencrypted PDF: ${doc.file_name}`);
         } catch (e: any) {
-          // If encrypted, try loading with student ID as password
-          if (e.message.includes('is encrypted')) {
-            console.log('PDF is encrypted, trying with student ID as password.');
-            try {
-              pdf = await PDFDocument.load(bytes, { password: studentId });
-            } catch (passwordError) {
-              console.warn('Failed to decrypt with student ID password. Trying to load by ignoring encryption. This may result in blank pages if the document is heavily encrypted.');
-              pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+          // If encrypted, try multiple strategies
+          if (
+            e.message &&
+            (e.message.includes('is encrypted') ||
+              e.message.includes('encrypted'))
+          ) {
+            logger.log(
+              `🔒 Encrypted PDF detected: ${doc.file_name}`
+            );
+
+            // Try decryption strategies in order
+            const passwordsToTry = [
+              studentId, // student ID
+              '', // empty password
+            ];
+
+            pdf = await tryDecryptPDF(bytes, passwordsToTry);
+
+            if (pdf) {
+              logger.log(
+                `✅ Decryption successful for: ${doc.file_name}`
+              );
+            } else {
+              logger.warn(
+                `❌ Decryption failed for: ${doc.file_name} - will insert placeholder`
+              );
+              failedDocuments.push({
+                name: doc.file_name,
+                reason: 'Encrypted and could not be decrypted',
+              });
+
+              // Insert placeholder page instead of skipping
+              await createPlaceholderPage(mergedPdf, doc.file_name);
+              placeholdersInserted++;
+              continue;
             }
           } else {
-            console.error('An unexpected error occurred while loading a PDF, re-throwing.', e)
-            throw e; // re-throw other errors
+            logger.error(
+              'An unexpected error occurred while loading a PDF:',
+              e
+            );
+            failedDocuments.push({
+              name: doc.file_name,
+              reason: `Error loading PDF: ${e.message}`,
+            });
+            throw e;
           }
         }
 
-        const copied = await mergedPdf.copyPages(
-          pdf,
-          pdf.getPageIndices()
-        );
-
-        copied.forEach(p => mergedPdf.addPage(p));
-        validPdfCount++;
-
+        if (pdf) {
+          const copied = await mergedPdf.copyPages(
+            pdf,
+            pdf.getPageIndices()
+          );
+          copied.forEach((p) => mergedPdf.addPage(p));
+          validPdfCount++;
+        }
       } catch (e) {
-        console.error('Failed merging file:', doc.file_path, e);
+        logger.error('Failed merging file:', doc.file_path, e);
+        failedDocuments.push({
+          name: doc.file_name,
+          reason: `Failed to merge: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        });
         continue;
       }
     }
 
-    if (validPdfCount === 0) {
-      console.error('No valid PDFs found to merge.');
-      return null;
+    if (validPdfCount === 0 && placeholdersInserted === 0) {
+      logger.error('No valid PDFs found to merge.');
+      return {
+        blob: null,
+        failedDocuments,
+        placeholdersInserted,
+      };
     }
 
     const mergedBytes = await mergedPdf.save();
+    logger.log(
+      `✅ HR Pack created successfully: ${validPdfCount} documents merged, ${placeholdersInserted} placeholders inserted`
+    );
 
-    return new Blob([mergedBytes], { type: 'application/pdf' });
-
+    return {
+      blob: new Blob([mergedBytes], { type: 'application/pdf' }),
+      failedDocuments,
+      placeholdersInserted,
+    };
   } catch (err) {
-    console.error('Error merging documents:', err);
-    return null;
+    logger.error('Error merging documents:', err);
+    return {
+      blob: null,
+      failedDocuments: [],
+      placeholdersInserted: 0,
+    };
   }
 };
 /**

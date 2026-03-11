@@ -578,14 +578,44 @@ University of Fort Hare`;
   };
 
   const handleForwardToHR = async (applicationId: string) => {
+    if (!documentsComplete) {
+      toast.error('All required onboarding documents must be uploaded before forwarding to HR');
+      return;
+    }
+
     setIsForwardingToHR(true);
     setMessage('Forwarding to HR...');
     setLoading(true);
+
     try {
+      // First, generate the HR pack
+      const docs = await fetchApplicationDocuments(applicationId);
+      const app = selectedApplication;
+      if (!app) throw new Error('Application data missing');
+
+      const result = await mergeDocumentsIntoPDF(
+        docs,
+        app.student_number,
+        app.full_name,
+        app.department,
+        applicationId,
+        new Date().toLocaleDateString(),
+        app.student_number
+      );
+
+      if (!result.blob) {
+        throw new Error('Failed to generate HR Pack');
+      }
+
+      // Update application status to HR_SUBMITTED
       const { error } = await supabase
         .from('tutor_applications')
-        .update({ offer_status: 'HR_SUBMITTED', hr_submitted_at: new Date().toISOString() } as any)
+        .update({ 
+          offer_status: 'HR_SUBMITTED', 
+          hr_submitted_at: new Date().toISOString() 
+        } as any)
         .eq('id', applicationId);
+      
       if (error) throw error;
 
       // Log the action
@@ -593,11 +623,38 @@ University of Fort Hare`;
         applicationId,
         user?.id || '',
         user?.email || 'Unknown Admin',
-        'HR_PACK_GENERATED',
+        'HR_PACK_SUBMITTED',
         'HR document pack generated and submitted to Human Resources'
       );
 
-      toast.success('Documents forwarded to HR successfully');
+      // Open email client with mailto
+      const subject = `Tutor Application HR Pack – ${app.full_name}`;
+      const body = `Dear HR,
+
+Please find attached the HR Pack for the tutor applicant below.
+
+Applicant Name: ${app.full_name}
+Student Number: ${app.student_number}
+Department: ${app.department}
+
+${result.failedDocuments.length > 0 ? `⚠ Note: Some documents appear as placeholders if they were encrypted and could not be decrypted.` : ''}
+
+Kind regards`;
+
+      const mailtoLink = `mailto:hr@university.ac.za?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.location.href = mailtoLink;
+
+      // Save HR pack for download
+      const url = URL.createObjectURL(result.blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `HR_Pack_${applicationId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('HR Pack generated and email client opened. Please attach the PDF to the email.');
       await fetchApplications();
       setIsDialogOpen(false);
     } catch (err) {
@@ -626,7 +683,7 @@ University of Fort Hare`;
       const app = selectedApplication;
       if (!app) throw new Error('Application data missing');
 
-      const blob = await mergeDocumentsIntoPDF(
+      const result = await mergeDocumentsIntoPDF(
         docs,
         app.student_number,
         app.full_name,
@@ -636,8 +693,8 @@ University of Fort Hare`;
         app.student_number
       );
 
-      if (blob) {
-        const url = URL.createObjectURL(blob);
+      if (result.blob) {
+        const url = URL.createObjectURL(result.blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `HR_Pack_${applicationId}.pdf`;
@@ -645,6 +702,17 @@ University of Fort Hare`;
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        
+        // Show merge result with warnings if applicable
+        if (result.failedDocuments.length > 0) {
+          toast.warning(
+            `⚠ Some documents could not be merged due to encryption. They have been replaced with placeholders in the HR Pack. Please download the original files manually from the applicant profile if required.`
+          );
+        } else {
+          toast.success('HR Pack generated successfully');
+        }
+      } else {
+        throw new Error('Failed to create HR Pack');
       }
 
       await createAuditLog(
@@ -851,16 +919,16 @@ University of Fort Hare`;
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-6 md:py-8">
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
           <Card className="border-0 shadow-md">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <Users className="w-5 h-5 text-primary" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-2xl font-bold">{stats.total}</p>
                   <p className="text-xs text-muted-foreground">Total</p>
                 </div>
@@ -870,10 +938,10 @@ University of Fort Hare`;
           <Card className="border-0 shadow-md">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center flex-shrink-0">
                   <Clock className="w-5 h-5 text-warning" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-2xl font-bold">{stats.pending}</p>
                   <p className="text-xs text-muted-foreground">Pending</p>
                 </div>
@@ -883,10 +951,10 @@ University of Fort Hare`;
           <Card className="border-0 shadow-md">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <AlertCircle className="w-5 h-5 text-primary" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-2xl font-bold">{stats.underReview}</p>
                   <p className="text-xs text-muted-foreground">Reviewing</p>
                 </div>
@@ -896,10 +964,10 @@ University of Fort Hare`;
           <Card className="border-0 shadow-md">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center flex-shrink-0">
                   <CheckCircle2 className="w-5 h-5 text-success" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-2xl font-bold">{stats.approved}</p>
                   <p className="text-xs text-muted-foreground">Approved</p>
                 </div>
@@ -909,10 +977,10 @@ University of Fort Hare`;
           <Card className="border-0 shadow-md">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center flex-shrink-0">
                   <XCircle className="w-5 h-5 text-destructive" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-2xl font-bold">{stats.rejected}</p>
                   <p className="text-xs text-muted-foreground">Rejected</p>
                 </div>
@@ -924,40 +992,42 @@ University of Fort Hare`;
         {/* Filters */}
         <Card className="border-0 shadow-md mb-6">
           <CardContent className="p-4">
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col gap-3 md:gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by name, student number, or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 w-full"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-48">
-                  <Filter className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="under_review">Under Review</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={facultyFilter} onValueChange={setFacultyFilter}>
-                <SelectTrigger className="w-full md:w-64">
-                  <SelectValue placeholder="Filter by faculty" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Faculties</SelectItem>
-                  {faculties.map(faculty => (
-                    <SelectItem key={faculty} value={faculty}>{faculty}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full">
+                    <Filter className="w-4 h-4 mr-2" />
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="under_review">Under Review</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={facultyFilter} onValueChange={setFacultyFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filter by faculty" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Faculties</SelectItem>
+                    {faculties.map(faculty => (
+                      <SelectItem key={faculty} value={faculty}>{faculty}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -974,13 +1044,13 @@ University of Fort Hare`;
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {/* Tutor Personal Info Form */}
               <div className="space-y-3">
                 <div>
                   <h3 className="font-semibold text-sm mb-2">Tutor Personal Information Form</h3>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    File must be named: <code className="bg-muted px-1 py-0.5 rounded">tutor_personal_form.pdf</code>
+                  <p className="text-xs text-muted-foreground mb-3 break-all">
+                    File must be named: <code className="bg-muted px-1 py-0.5 rounded text-xs">tutor_personal_form.pdf</code>
                   </p>
                 </div>
                 <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center">
@@ -992,7 +1062,7 @@ University of Fort Hare`;
                     className="cursor-pointer"
                   />
                   {personalFormFile && (
-                    <p className="text-xs text-green-600 mt-2">
+                    <p className="text-xs text-green-600 mt-2 break-all">
                       ✓ Selected: {personalFormFile.name}
                     </p>
                   )}
@@ -1003,8 +1073,8 @@ University of Fort Hare`;
               <div className="space-y-3">
                 <div>
                   <h3 className="font-semibold text-sm mb-2">Offer Acceptance Affidavit</h3>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    File must be named: <code className="bg-muted px-1 py-0.5 rounded">offer_affidavit.pdf</code>
+                  <p className="text-xs text-muted-foreground mb-3 break-all">
+                    File must be named: <code className="bg-muted px-1 py-0.5 rounded text-xs">offer_affidavit.pdf</code>
                   </p>
                 </div>
                 <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center">
@@ -1016,7 +1086,7 @@ University of Fort Hare`;
                     className="cursor-pointer"
                   />
                   {affidavitFile && (
-                    <p className="text-xs text-green-600 mt-2">
+                    <p className="text-xs text-green-600 mt-2 break-all">
                       ✓ Selected: {affidavitFile.name}
                     </p>
                   )}
@@ -1024,9 +1094,9 @@ University of Fort Hare`;
               </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
-              <p className="font-semibold mb-1">How this works:</p>
-              <ul className="text-xs space-y-1 ml-4 list-disc">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 md:p-4 text-sm text-blue-900">
+              <p className="font-semibold mb-2">How this works:</p>
+              <ul className="text-xs md:text-sm space-y-1 ml-4 list-disc">
                 <li>Upload the templates here first</li>
                 <li>Select approved applicants and click "Send Offer"</li>
                 <li>Applicants will receive emails with PDF attachments</li>
@@ -1068,81 +1138,87 @@ University of Fort Hare`;
                 <p className="text-muted-foreground">No applications found</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 overflow-x-hidden">
                 {filteredApplications.map((app) => (
                   <div
                     key={app.id}
-                    className="flex items-center justify-between p-4 rounded-lg border bg-card hover:shadow-md transition-shadow cursor-pointer"
+                    className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border bg-card hover:shadow-md transition-shadow cursor-pointer gap-3"
                     onClick={() => handleViewApplication(app)}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
+                    <div className="flex items-center gap-3 md:gap-4 min-w-0">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold flex-shrink-0">
                         {app.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
-                      <div>
-                        <div className="font-medium flex items-center">
-                          {app.full_name}
+                      <div className="min-w-0">
+                        <div className="font-medium flex items-center flex-wrap gap-2">
+                          <span className="truncate">{app.full_name}</span>
                           {appUnreadCounts[app.id] > 0 && (
                             <>
-                              <span className="ml-2 w-2 h-2 rounded-full bg-destructive inline-block" />
-                              <Badge className="ml-1">{appUnreadCounts[app.id]}</Badge>
+                              <span className="w-2 h-2 rounded-full bg-destructive flex-shrink-0" />
+                              <Badge className="flex-shrink-0">{appUnreadCounts[app.id]}</Badge>
                             </>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground">{app.student_number} • {app.faculty}</p>
+                        <p className="text-sm text-muted-foreground truncate">{app.student_number} • {app.faculty}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 md:gap-3 flex-wrap">
                       <Badge className={statusConfig[app.status as keyof typeof statusConfig]?.color}>
                         {statusConfig[app.status as keyof typeof statusConfig]?.label}
                       </Badge>
                       {/* Offer status badge (if any) */}
                       {app.offer_status && (
-                        <Badge variant="outline" className={app.offer_status === 'WITHDRAWN' ? 'text-destructive' : ''}>{String(app.offer_status)}</Badge>
+                        <Badge variant="outline" className={app.offer_status === 'WITHDRAWN' ? 'text-destructive' : ''}>
+                          {String(app.offer_status)}
+                        </Badge>
                       )}
-                      <span className="text-sm text-muted-foreground hidden md:block">
+                      <span className="text-sm text-muted-foreground hidden lg:block flex-shrink-0">
                         {app.submitted_at && new Date(app.submitted_at).toLocaleDateString('en-ZA')}
                       </span>
-                      {/* Send Offer button for approved applicants */}
-                      {app.status === 'approved' && !['SENT','ACCEPTED_AWAITING_UPLOAD','SIGNED_UPLOADED','RESUBMISSION_REQUIRED','VERIFIED','HR_SUBMITTED'].includes(app.offer_status || '') && (
+                      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto flex-wrap">
+                        {/* Send Offer button for approved applicants */}
+                        {app.status === 'approved' && !['SENT','ACCEPTED_AWAITING_UPLOAD','SIGNED_UPLOADED','RESUBMISSION_REQUIRED','VERIFIED','HR_SUBMITTED'].includes(app.offer_status || '') && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!confirm(`Send offer to ${app.full_name}?`)) return;
+                              sendOffer(app.id);
+                            }}
+                            className="text-xs sm:text-sm"
+                          >
+                            Send Offer
+                          </Button>
+                        )}
+                        {/* Email student external button */}
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="secondary"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (!confirm(`Send offer to ${app.full_name}?`)) return;
-                            sendOffer(app.id);
+                            handleEmailStudent(app);
                           }}
+                          className="text-xs sm:text-sm"
                         >
-                          Send Offer
+                          Email
                         </Button>
-                      )}
-                      {/* Email student external button */}
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEmailStudent(app);
-                        }}
-                      >
-                        Email Student
-                      </Button>
-                      {/* Withdraw offer button if one has been issued */}
-                      {app.offer_status && ['SENT','ACCEPTED_AWAITING_UPLOAD','RESUBMISSION_REQUIRED','SIGNED_UPLOADED','VERIFIED'].includes(app.offer_status) && (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!confirm(`Withdraw offer for ${app.full_name}?`)) return;
-                            withdrawOffer(app.id);
-                          }}
-                        >
-                          Withdraw
-                        </Button>
-                      )}
-                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                        {/* Withdraw offer button if one has been issued */}
+                        {app.offer_status && ['SENT','ACCEPTED_AWAITING_UPLOAD','RESUBMISSION_REQUIRED','SIGNED_UPLOADED','VERIFIED'].includes(app.offer_status) && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!confirm(`Withdraw offer for ${app.full_name}?`)) return;
+                              withdrawOffer(app.id);
+                            }}
+                            className="text-xs sm:text-sm"
+                          >
+                            Withdraw
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
